@@ -14,7 +14,7 @@ namespace SubCSharp
     {
         //State for WSRT & Webvvt reading
         private enum SState { Empty, Adding, Iterating, Comment, Timestamp };
-        private static String[] BlankArray = new String[] { " " }; //Dont want to keep recreating it
+        private static String[] SpaceArray = new String[] { " " }; //Dont want to keep recreating it
         private static String[] NewLineArray = new String[] { "\n" };
         //Internal sub format to allow easy conversion
         private class SubtitleCU
@@ -70,26 +70,7 @@ namespace SubCSharp
                     bool beginSuc = DateTime.TryParse(begin, out beginTime);
                     if (!beginSuc) //If that failed parse it differently
                     {
-                        beginTime = new DateTime();
-                        Regex rg = new Regex(@"^([0-9.]+)([a-z]+)$");
-                        MatchCollection mtchs = rg.Matches(begin);
-                        float st = float.Parse(mtchs[0].Groups[1].Value);
-                        switch (mtchs[0].Groups[2].Value)
-                        {
-                            case ("h"):
-                                beginTime = beginTime.AddHours(st);
-                                break;
-                            case ("m"):
-                                beginTime = beginTime.AddMinutes(st);
-                                break;
-                            case ("s"):
-                                beginTime = beginTime.AddSeconds(st);
-                                break;
-                            case ("ms"):
-                                beginTime = beginTime.AddMilliseconds(st);
-                                break;
-                        }
-
+                        beginTime = parseTimeMetric(begin);
                     }
 
                     String end = reader.GetAttribute("end");
@@ -97,26 +78,7 @@ namespace SubCSharp
 
                     if (!endSuc) //If that failed parse it differently
                     {
-                        endTime = new DateTime();
-                        Regex rg = new Regex(@"^([0-9.]+)([a-z]+)$");
-                        MatchCollection mtchs = rg.Matches(end);
-                        float st = float.Parse(mtchs[0].Groups[1].Value);
-                        switch (mtchs[0].Groups[2].Value)
-                        {
-                            case ("h"):
-                                endTime = endTime.AddHours(st);
-                                break;
-                            case ("m"):
-                                endTime = endTime.AddMinutes(st);
-                                break;
-                            case ("s"):
-                                endTime = endTime.AddSeconds(st);
-                                break;
-                            case ("ms"):
-                                endTime = endTime.AddMilliseconds(st);
-                                break;
-                        }
-
+                        endTime = parseTimeMetric(end);
                     }
 
                     String text = reader.ReadInnerXml();
@@ -222,10 +184,11 @@ namespace SubCSharp
                         String[] time = Regex.Split(line, " *--> *");
                         //Parse the time, can only be one of 2 option, so try this one first
                         bool tryBegin = DateTime.TryParseExact(time[0], "HH:mm:ss.fff", CultureInfo.InvariantCulture, DateTimeStyles.None, out beginTime);
-                        bool tryEnd = DateTime.TryParseExact(time[1], "HH:mm:ss.fff", CultureInfo.InvariantCulture, DateTimeStyles.None, out endTime);
+                        String[] endTimeSplit = time[1].Split(SpaceArray, StringSplitOptions.None); //Timestamp might contain info after it, so remove it
+                        bool tryEnd = DateTime.TryParseExact(endTimeSplit[0], "HH:mm:ss.fff", CultureInfo.InvariantCulture, DateTimeStyles.None, out endTime);
                         //If something went wrong, parse it differnetly;
                         if (!tryBegin) DateTime.TryParseExact(time[0], "mm:ss.fff", CultureInfo.InvariantCulture, DateTimeStyles.None, out beginTime);
-                        if (!tryEnd) DateTime.TryParseExact(time[1], "mm:ss.fff", CultureInfo.InvariantCulture, DateTimeStyles.None, out endTime);
+                        if (!tryEnd) DateTime.TryParseExact(endTimeSplit[0], "mm:ss.fff", CultureInfo.InvariantCulture, DateTimeStyles.None, out endTime);
                         ss = SState.Iterating;
                         break;
 
@@ -330,7 +293,7 @@ namespace SubCSharp
                         {
                             String[] time = Regex.Split(line, " *--> *");
                             DateTime.TryParse(time[0], out beginTime);
-                            DateTime.TryParse(time[1].Split(BlankArray, StringSplitOptions.None)[0], out endTime);
+                            DateTime.TryParse(time[1].Split(SpaceArray, StringSplitOptions.None)[0], out endTime);
                             //beginTime = DateTime.ParseExact(time[0].Substring(0, 12), "HH:mm:ss.fff", CultureInfo.InvariantCulture);
                             //endTime = DateTime.ParseExact(time[1].Substring(0, 12), "HH:mm:ss.fff", CultureInfo.InvariantCulture);
                             ss = SState.Adding;
@@ -349,7 +312,7 @@ namespace SubCSharp
                             //Set date
                             String[] time = Regex.Split(line, " *--> *");
                             DateTime.TryParse(time[0], out beginTime);
-                            DateTime.TryParse(time[1].Split(BlankArray, StringSplitOptions.None)[0], out endTime);
+                            DateTime.TryParse(time[1].Split(SpaceArray, StringSplitOptions.None)[0], out endTime);
                             //beginTime = DateTime.ParseExact(time[0].Substring(0, 12), "HH:mm:ss.fff", CultureInfo.InvariantCulture);
                             //endTime = DateTime.ParseExact(time[1].Substring(0, 12), "HH:mm:ss.fff", CultureInfo.InvariantCulture);
 
@@ -468,6 +431,40 @@ namespace SubCSharp
             }
             System.IO.File.WriteAllText(path, subExport);
         }
+
+        //--------------------------------------------Misc stuff -----------------//
+        /// <summary>
+        /// Parses a timemetric ie 12h31m2s44ms
+        /// </summary>
+        /// <param name="metric">The metric string</param>
+        /// <returns>The datetime equivilent</returns>
+        private DateTime parseTimeMetric(String metric)
+        {
+            DateTime time = new DateTime();
+            Regex rg = new Regex(@"([0-9.]+)([a-z]+)");
+            MatchCollection mtchs = rg.Matches(metric);
+            foreach(Match match in mtchs)
+            {
+                float st = float.Parse(match.Groups[1].Value);
+                switch (match.Groups[2].Value)
+                {
+                    case ("h"):
+                        time = time.AddHours(st);
+                        break;
+                    case ("m"):
+                        time = time.AddMinutes(st);
+                        break;
+                    case ("s"):
+                        time = time.AddSeconds(st);
+                        break;
+                    case ("ms"):
+                        time = time.AddMilliseconds(st);
+                        break;
+                }
+            }
+            return time;
+        }
+
         /// <summary>
         /// Convert a subtitle, supports
         /// DFXP, SRT, WSRT, vtt;

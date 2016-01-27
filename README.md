@@ -2,9 +2,11 @@
 
 A basic commandline C#(.NET) subtitle converter
 
+Doesn't support transfer of fancy markup
+
 Supports read/write to the following formats.
 
-- .dfxp
+- .dfxp/.ttml
 - .srt
 - .wsrt
 - .vtt
