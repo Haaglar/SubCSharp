@@ -1,6 +1,6 @@
 # SubCSharp
 
-A basic C# subtitle converter
+A basic commandline C#(.NET) subtitle converter
 
 Supports read/write to the following formats.
 
@@ -8,3 +8,5 @@ Supports read/write to the following formats.
 - .srt
 - .wsrt
 - .vtt
+
+Requires read/write permissions in both input and output directories.
