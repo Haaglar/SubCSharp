@@ -6,6 +6,7 @@ Doesn't support transfer of fancy markup
 
 Supports read/write to the following formats.
 
+- .ass/ssa
 - .dfxp/.ttml
 - .srt
 - .wsrt

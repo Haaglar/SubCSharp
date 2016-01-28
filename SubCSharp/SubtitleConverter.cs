@@ -169,7 +169,7 @@ namespace SubCSharp
 
             subTitleLocal.Add(new SubtitleEntry(beginTime, endTime, tmp));
             //Main loop
-            foreach (String sub in split.Skip(2))
+            foreach (String sub in split.Skip(1))
             {
                 String[] splitc2 = sub.Split(new string[] { "\n" }, StringSplitOptions.None);
 
@@ -388,6 +388,36 @@ namespace SubCSharp
         }
         //-------------------------------------------------------------------------Write Formats---------------//
         /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="path"></param>
+        private void WriteASS(String path)
+        {
+            String head = "[Script Info]\n"      +
+                          "Title: <untitled>\n"  +
+                          "ScriptType: v4.00+\n" +
+                          "Collisions: Normal\n" +
+                          "PlayDepth: 0\n\n";
+
+            String styles = "[v4+ Styles]\n" +
+                            "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n" +
+                            "Style: Default,Arial,20,&H00FFFFFF,&H000080FF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,2,2,2,10,10,20,0\n\n";
+            String events = "[Events]\n" +
+                           "Format: Layer, Start, End, Style, Actor, MarginL, MarginR, MarginV, Effect, Text\n";
+            StringBuilder builder = new StringBuilder();
+            builder.Append(head);
+            builder.Append(styles);
+            builder.Append(events);
+            foreach(SubtitleEntry entry in subTitleLocal)
+            {
+                String startTime = entry.startTime.ToString("H:mm:ss.ff");
+                String endTime = entry.endTime.ToString("H:mm:ss.ff");
+                builder.Append(String.Format("Dialogue: 0,{0},{1},Default,,0,0,0,,{2}\n",startTime,endTime,entry.content.Replace("\n","\\N")));
+            }
+             System.IO.File.WriteAllText(path, builder.ToString());
+        }
+
+        /// <summary>
         /// Writes the current subtitle stored as a DFXP
         /// </summary>
         /// <param name="path">Output path for subtitle</param>
@@ -553,6 +583,9 @@ namespace SubCSharp
             }
             switch (extensionOutput) //Write to file
             {
+                case (".ass"): case (".ssa"):
+                    WriteASS(output);
+                    break;
                 case (".dfxp"): case(".ttml"):
                     WriteDFXP(output);
                     break;
