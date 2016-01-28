@@ -65,10 +65,11 @@ namespace SubCSharp
                             {
                                 //Split into 10 Segments
                                 //Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+                                //TODO: does it require them all?, or will the magic 10 be replace based on ^
                                 String [] splitLine = line.Split(CommaArray, 10 , StringSplitOptions.None);
                                 DateTime beginTime = DateTime.ParseExact(splitLine[1], "H:mm:ss.ff", CultureInfo.InvariantCulture);
                                 DateTime endTime = DateTime.ParseExact(splitLine[2], "H:mm:ss.ff", CultureInfo.InvariantCulture);
-                                String text = splitLine[9].Replace("\\N", "\n");//Replace new lineswith actual newlines
+                                String text = splitLine[9].Replace("\\N", "\n");//Replace \N with actual newlines
                                 subTitleLocal.Add(new SubtitleEntry(beginTime, endTime, text));
                             }
                             break;
@@ -76,6 +77,9 @@ namespace SubCSharp
                 }
             }
             //Since ass/ssa can be in any order we must do this;
+            //It shouldn't mess up already ordered for the next part
+            subTitleLocal = subTitleLocal.OrderBy(o => o.startTime).ToList();
+            //Remove dupicale start times and join to one..
             //Taken from and modified from http://stackoverflow.com/questions/14918668/find-duplicates-and-merge-items-in-a-list
             for (int i = 0; i < subTitleLocal.Count - 1; i++)
             {
@@ -83,15 +87,19 @@ namespace SubCSharp
                 for (int j = i + 1; j < subTitleLocal.Count; )
                 {
                     var anotherItem = subTitleLocal[j];
-                    if (item.startTime.Equals(anotherItem.startTime)) // i.e., dictionaries are equal
+                    if (item.startTime > anotherItem.startTime) break; //No point contiuning as the list is sorted
+                    if (item.startTime.Equals(anotherItem.startTime)) 
                     {
-                        item.content = item.content +"\n" + anotherItem.content;
-                        subTitleLocal.RemoveAt(j); // it has better performance compared to `StaticList.Remove(anotherItem);`
+                        //We just join the to and hope that they were in the right order
+                        //TODO: check y offset and order by that
+                        item.content = item.content +"\n" + anotherItem.content; 
+                        subTitleLocal.RemoveAt(j); 
                     }
                     else
                         j++;
                 }
             }
+            
         }
         /// <summary>
         /// Converts a dfxp subtitle into the Catchup Grabbers subtitle format
