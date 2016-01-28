@@ -17,49 +17,22 @@ namespace SubCSharp
         private static String[] SpaceArray = new String[] { " " }; //Dont want to keep recreating it
         private static String[] NewLineArray = new String[] { "\n" };
         private static String[] CommaArray = new String[] { "," };
+
         //Internal sub format to allow easy conversion
-        private class SubtitleCU
+        private class SubtitleEntry
         {
-            public List<DateTime> startTime;
-            public List<DateTime> endTime;
-            public List<String> content;
-            public SubtitleCU()
+            public DateTime startTime { get; set; }
+            public DateTime endTime { get; set; }
+            public String content { get; set; }
+            public SubtitleEntry(DateTime sTime, DateTime eTime, String text)
             {
-                startTime = new List<DateTime>();
-                endTime = new List<DateTime>();
-                content = new List<String>();
-            }
-            /// <summary>
-            /// Adds a specific entry to the subtitle
-            /// </summary>
-            /// <param name="sTime">The start time of the entry</param>
-            /// <param name="eTime">The end time of the entry</param>
-            /// <param name="text">The content of the entry</param>
-            public void AddEntry(DateTime sTime, DateTime eTime, String text)
-            {
-                startTime.Add(sTime);
-                endTime.Add(eTime);
-                content.Add(text);
-            }
-            public int GetLength()
-            {
-                return content.Count;
-            }
-            public DateTime GetLastStartTime()
-            {
-                return startTime[startTime.Count - 1];
-            }
-            /// <summary>
-            /// Append to the latest entry
-            /// </summary>
-            /// <param name="text">The String to append</param>
-            public void AppendLatest(String text)
-            {
-                content[content.Count - 1] = content[content.Count - 1] + "\n" + text;  
+                startTime = sTime;
+                endTime = eTime;
+                content = text;
             }
         }
 
-        SubtitleCU subTitleLocal;
+        List<SubtitleEntry> subTitleLocal;
 
         public SubtitleConverter() { }
         //-------------------------------------------------------------------------Read Formats---------------//
@@ -70,7 +43,6 @@ namespace SubCSharp
             using (StreamReader assFileSR = new StreamReader(path)) //Read file to string
             {
                 subContent = assFileSR.ReadToEnd();
-                Console.WriteLine(assFileSR.CurrentEncoding);
                 subContent = Regex.Replace(subContent, @"\{[^}]*\}", ""); //Remove all additional styling
             }
             using (StringReader assFile = new StringReader(subContent)) 
@@ -97,20 +69,29 @@ namespace SubCSharp
                                 DateTime beginTime = DateTime.ParseExact(splitLine[1], "H:mm:ss.ff", CultureInfo.InvariantCulture);
                                 DateTime endTime = DateTime.ParseExact(splitLine[2], "H:mm:ss.ff", CultureInfo.InvariantCulture);
                                 String text = splitLine[9].Replace("\\N", "\n");//Replace new lineswith actual newlines
-                                if(subTitleLocal.GetLength() >0 && beginTime.Equals(subTitleLocal.GetLastStartTime())) //Since you can have overlaying subtitles lets join them if thats the case
-                                {
-                                    subTitleLocal.AppendLatest(text);
-                                }
-                                else
-                                {
-                                    subTitleLocal.AddEntry(beginTime, endTime, text);
-                                }
+                                subTitleLocal.Add(new SubtitleEntry(beginTime, endTime, text));
                             }
                             break;
                     }
                 }
             }
-
+            //Since ass/ssa can be in any order we must do this;
+            //Taken from and modified from http://stackoverflow.com/questions/14918668/find-duplicates-and-merge-items-in-a-list
+            for (int i = 0; i < subTitleLocal.Count - 1; i++)
+            {
+                var item = subTitleLocal[i];
+                for (int j = i + 1; j < subTitleLocal.Count; )
+                {
+                    var anotherItem = subTitleLocal[j];
+                    if (item.startTime.Equals(anotherItem.startTime)) // i.e., dictionaries are equal
+                    {
+                        item.content = item.content +"\n" + anotherItem.content;
+                        subTitleLocal.RemoveAt(j); // it has better performance compared to `StaticList.Remove(anotherItem);`
+                    }
+                    else
+                        j++;
+                }
+            }
         }
         /// <summary>
         /// Converts a dfxp subtitle into the Catchup Grabbers subtitle format
@@ -146,7 +127,7 @@ namespace SubCSharp
                     String text = reader.ReadInnerXml();
                     text = Regex.Replace(text, "\n( *)", ""); //Debeutify xml node
                     text = text.Replace("<br /><br />", "\n").Replace("<br/><br/>", "\n").Replace("<br />", "\n").Replace("<br/>", "\n"); //Depends on the format remove all
-                    subTitleLocal.AddEntry(beginTime, endTime, text);
+                    subTitleLocal.Add(new SubtitleEntry(beginTime, endTime, text));
                 }
             }
             System.IO.File.Delete(path + "_cureadtemp"); //Remove temp read file
@@ -178,7 +159,7 @@ namespace SubCSharp
                 tmp = tmp + "\n" + text;
             }
 
-            subTitleLocal.AddEntry(beginTime, endTime, tmp);
+            subTitleLocal.Add(new SubtitleEntry(beginTime, endTime, tmp));
             //Main loop
             foreach (String sub in split.Skip(2))
             {
@@ -196,7 +177,7 @@ namespace SubCSharp
                     tmp2 = tmp2 + "\n" + text.TrimEnd();
                 }
 
-                subTitleLocal.AddEntry(beginTime2, endTime2, tmp2);
+                subTitleLocal.Add(new SubtitleEntry(beginTime2, endTime2, tmp2));
             }
         }
         /// <summary>
@@ -227,7 +208,7 @@ namespace SubCSharp
                         if (line.Equals("")) continue;                            //Run past newlines
                         //Style is only allowed to appear before all cues, hence a separate test, 
                         //unsure if you can have style and a :: value on same line, so test both  anyway
-                        if (subTitleLocal.GetLength() == 0 && linetrim.Equals("STYLE") || linetrim.StartsWith("STYLE "))
+                        if (subTitleLocal.Count == 0 && linetrim.Equals("STYLE") || linetrim.StartsWith("STYLE "))
                         {
                             ss = SState.Comment;                                //We want to skip like a note;
                             goto case (SState.Comment);                         //Goto encouraged in in c# case :)
@@ -258,7 +239,7 @@ namespace SubCSharp
                         if (line.Equals("")) //Come to the end of the cue block so add it to the sub
                         {
                             String cleanedString = textContent.TrimEnd(); //Remove the additional newline we added
-                            subTitleLocal.AddEntry(beginTime, endTime, cleanedString);
+                            subTitleLocal.Add(new SubtitleEntry(beginTime, endTime, cleanedString));
                             textContent = "";                             //Cleanup
                             ss = SState.Empty;
                         }
@@ -273,7 +254,7 @@ namespace SubCSharp
             if (ss == SState.Iterating) //End of file, add last if we were still going
             {
                 String cleanedString = textContent.TrimEnd(); //Remove the additional newline we added
-                subTitleLocal.AddEntry(beginTime, endTime, cleanedString);
+                subTitleLocal.Add(new SubtitleEntry(beginTime, endTime, cleanedString));
             }
 
         }
@@ -307,7 +288,7 @@ namespace SubCSharp
                 tmp = tmp + "\n" + text;
             }
             tmp = Regex.Replace(tmp, @"</*[0-9]+>", "");
-            subTitleLocal.AddEntry(beginTime, endTime, tmp);
+            subTitleLocal.Add(new SubtitleEntry(beginTime, endTime, tmp));
             //Main loop
             foreach (String sub in split.Skip(1))
             {
@@ -325,7 +306,7 @@ namespace SubCSharp
                     tmp2 = tmp2 + "\n" + text.TrimEnd();
                 }
                 tmp2 = Regex.Replace(tmp2, @"</*[0-9]+>", "");
-                subTitleLocal.AddEntry(beginTime2, endTime2, tmp2);
+                subTitleLocal.Add(new SubtitleEntry(beginTime2, endTime2, tmp2));
             }
 
         }
@@ -367,7 +348,7 @@ namespace SubCSharp
                             //Add
                             cleanedString = subContent.TrimEnd();
                             cleanedString = Regex.Replace(cleanedString, @"</*[0-9]+>", "");
-                            subTitleLocal.AddEntry(beginTime, endTime, cleanedString);
+                            subTitleLocal.Add(new SubtitleEntry(beginTime, endTime, cleanedString));
                             //Cleanup for new
                             subContent = "";
                             previous = "<blankstring>";
@@ -394,8 +375,7 @@ namespace SubCSharp
             //Add stragggler
             cleanedString = subContent.TrimEnd();
             cleanedString = Regex.Replace(cleanedString, @"</*[0-9]+>", "");
-            subTitleLocal.AddEntry(beginTime, endTime, cleanedString);
-            subTitleLocal.AddEntry(beginTime, endTime, subContent.TrimEnd());
+            subTitleLocal.Add(new SubtitleEntry(beginTime, endTime, cleanedString));
 
         }
         //-------------------------------------------------------------------------Write Formats---------------//
@@ -418,16 +398,17 @@ namespace SubCSharp
                     writer.WriteStartElement("body");
                     writer.WriteStartElement("div");
                     writer.WriteAttributeString("xml", "lang", null, "en");
-                    int length = subTitleLocal.GetLength();
-                    for (int i = 0; i < length; i++)
+                    int i = 0;
+                    foreach (SubtitleEntry entry in subTitleLocal)
                     {
-                        String sTime = subTitleLocal.startTime[i].ToString("HH:mm:ss.ff");
-                        String eTime = subTitleLocal.endTime[i].ToString("HH:mm:ss.ff");
-                        String content = subTitleLocal.content[i].Replace("\n", "<br/>");
+                        i++;
+                        String sTime = entry.startTime.ToString("HH:mm:ss.ff");
+                        String eTime = entry.endTime.ToString("HH:mm:ss.ff");
+                        String content = entry.content.Replace("\n", "<br/>");
                         writer.WriteStartElement("p");
                         writer.WriteAttributeString("begin", sTime);
                         writer.WriteAttributeString("end", eTime);
-                        writer.WriteAttributeString("xml", "id", null, "caption " + (i + 1));
+                        writer.WriteAttributeString("xml", "id", null, "caption " + i);
 
                         writer.WriteRaw(content);
                         writer.WriteEndElement();
@@ -450,12 +431,13 @@ namespace SubCSharp
         private void WriteSRT(String path)
         {
             String subExport = "";
-            int length = subTitleLocal.GetLength();
-            for (int i = 0; i < length; i++)
+            int i = 0;
+            foreach (SubtitleEntry entry in subTitleLocal)
             {
-                String sTime = subTitleLocal.startTime[i].ToString("HH:mm:ss,fff");
-                String eTime = subTitleLocal.endTime[i].ToString("HH:mm:ss,fff");
-                subExport = subExport + (i + 1) + "\n" + sTime + " --> " + eTime + "\n" + subTitleLocal.content[i] + "\n" + "\n";
+                i++;
+                String sTime = entry.startTime.ToString("HH:mm:ss,fff");
+                String eTime = entry.endTime.ToString("HH:mm:ss,fff");
+                subExport = subExport + i + "\n" + sTime + " --> " + eTime + "\n" + entry.content + "\n" + "\n";
             }
             System.IO.File.WriteAllText(path, subExport);
         }
@@ -467,12 +449,13 @@ namespace SubCSharp
         private void WriteWebVTT(String path)
         {
             String subExport = "WEBVTT\n\n";
-            int length = subTitleLocal.GetLength();
-            for (int i = 0; i < length; i++)
+            int i = 0;
+            foreach (SubtitleEntry entry in subTitleLocal)
             {
-                String sTime = subTitleLocal.startTime[i].ToString("HH:mm:ss.fff");
-                String eTime = subTitleLocal.endTime[i].ToString("HH:mm:ss.fff");
-                subExport = subExport + (i + 1) + "\n" + sTime + " --> " + eTime + "\n" + subTitleLocal.content[i].Replace("\n\n", "\n") + "\n" + "\n";
+                i++;
+                String sTime = entry.startTime.ToString("HH:mm:ss.fff");
+                String eTime = entry.endTime.ToString("HH:mm:ss.fff");
+                subExport = subExport + i + "\n" + sTime + " --> " + eTime + "\n" + entry.content.Replace("\n\n", "\n") + "\n" + "\n"; //Double newline only allowed at end;
             }
             System.IO.File.WriteAllText(path, subExport);
         }
@@ -484,12 +467,13 @@ namespace SubCSharp
         private void WriteWSRT(String path)
         {
             String subExport = "";
-            int length = subTitleLocal.GetLength();
-            for (int i = 0; i < length; i++)
+            int i = 0;
+            foreach (SubtitleEntry entry in subTitleLocal)
             {
-                String sTime = subTitleLocal.startTime[i].ToString("HH:mm:ss.fff");
-                String eTime = subTitleLocal.endTime[i].ToString("HH:mm:ss.fff");
-                subExport = subExport + (i + 1) + "\n" + sTime + " --> " + eTime + "\n" + subTitleLocal.content[i] + "\n" + "\n";
+                i++;
+                String sTime = entry.startTime.ToString("HH:mm:ss.fff");
+                String eTime = entry.endTime.ToString("HH:mm:ss.fff");
+                subExport = subExport + i + "\n" + sTime + " --> " + eTime + "\n" + entry.content + "\n" + "\n";
             }
             System.IO.File.WriteAllText(path, subExport);
         }
@@ -529,13 +513,13 @@ namespace SubCSharp
 
         /// <summary>
         /// Convert a subtitle, supports
-        /// DFXP, SRT, WSRT, vtt;
+        /// DFXP/TTML, SRT, WSRT, vtt;
         /// </summary>
         /// <param name="input">The path to the subtitle to convert</param>
         /// <param name="output">The path to the location to save, and file name/type to convert to</param>
         public bool ConvertSubtitle(String input, String output)
         {
-            subTitleLocal = new SubtitleCU();
+            subTitleLocal = new List<SubtitleEntry>();
             String extensionInput = System.IO.Path.GetExtension(input).ToLower();
             String extensionOutput = System.IO.Path.GetExtension(output).ToLower();
             switch (extensionInput) //Read file
