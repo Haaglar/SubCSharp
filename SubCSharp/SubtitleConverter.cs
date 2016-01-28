@@ -16,6 +16,7 @@ namespace SubCSharp
         private enum SState { Empty, Adding, Iterating, Comment, Timestamp };
         private static String[] SpaceArray = new String[] { " " }; //Dont want to keep recreating it
         private static String[] NewLineArray = new String[] { "\n" };
+        private static String[] CommaArray = new String[] { "," };
         //Internal sub format to allow easy conversion
         private class SubtitleCU
         {
@@ -40,9 +41,21 @@ namespace SubCSharp
                 endTime.Add(eTime);
                 content.Add(text);
             }
-            public int getLength()
+            public int GetLength()
             {
                 return content.Count;
+            }
+            public DateTime GetLastStartTime()
+            {
+                return startTime[startTime.Count - 1];
+            }
+            /// <summary>
+            /// Append to the latest entry
+            /// </summary>
+            /// <param name="text">The String to append</param>
+            public void AppendLatest(String text)
+            {
+                content[content.Count - 1] = content[content.Count - 1] + "\n" + text;  
             }
         }
 
@@ -50,6 +63,55 @@ namespace SubCSharp
 
         public SubtitleConverter() { }
         //-------------------------------------------------------------------------Read Formats---------------//
+
+        private void ReadASS(String path)
+        {
+            String subContent;// = File.ReadAllText(path, Encoding.Default);
+            using (StreamReader assFileSR = new StreamReader(path)) //Read file to string
+            {
+                subContent = assFileSR.ReadToEnd();
+                Console.WriteLine(assFileSR.CurrentEncoding);
+                subContent = Regex.Replace(subContent, @"\{[^}]*\}", ""); //Remove all additional styling
+            }
+            using (StringReader assFile = new StringReader(subContent)) 
+            {
+                String line = "";
+                SState state = SState.Empty;
+                while ((line = assFile.ReadLine()) != null) //Iterate over string
+                {
+                    switch(state)
+                    {
+                        case SState.Empty:
+                            if (line.StartsWith("[Events]")) //The row before all dialog
+                            {
+                                assFile.ReadLine();          //Skip the format
+                                state = SState.Iterating;
+                            }
+                            break;
+                        case SState.Iterating:
+                            if(line.StartsWith("Dialogue:"))       //As Diaglog starts with this
+                            {
+                                //Split into 10 Segments
+                                //Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+                                String [] splitLine = line.Split(CommaArray, 10 , StringSplitOptions.None);
+                                DateTime beginTime = DateTime.ParseExact(splitLine[1], "H:mm:ss.ff", CultureInfo.InvariantCulture);
+                                DateTime endTime = DateTime.ParseExact(splitLine[2], "H:mm:ss.ff", CultureInfo.InvariantCulture);
+                                String text = splitLine[9].Replace("\\N", "\n");//Replace new lineswith actual newlines
+                                if(subTitleLocal.GetLength() >0 && beginTime.Equals(subTitleLocal.GetLastStartTime())) //Since you can have overlaying subtitles lets join them if thats the case
+                                {
+                                    subTitleLocal.AppendLatest(text);
+                                }
+                                else
+                                {
+                                    subTitleLocal.AddEntry(beginTime, endTime, text);
+                                }
+                            }
+                            break;
+                    }
+                }
+            }
+
+        }
         /// <summary>
         /// Converts a dfxp subtitle into the Catchup Grabbers subtitle format
         /// </summary>
@@ -165,7 +227,7 @@ namespace SubCSharp
                         if (line.Equals("")) continue;                            //Run past newlines
                         //Style is only allowed to appear before all cues, hence a separate test, 
                         //unsure if you can have style and a :: value on same line, so test both  anyway
-                        if (subTitleLocal.getLength() == 0 && linetrim.Equals("STYLE") || linetrim.StartsWith("STYLE "))
+                        if (subTitleLocal.GetLength() == 0 && linetrim.Equals("STYLE") || linetrim.StartsWith("STYLE "))
                         {
                             ss = SState.Comment;                                //We want to skip like a note;
                             goto case (SState.Comment);                         //Goto encouraged in in c# case :)
@@ -356,7 +418,7 @@ namespace SubCSharp
                     writer.WriteStartElement("body");
                     writer.WriteStartElement("div");
                     writer.WriteAttributeString("xml", "lang", null, "en");
-                    int length = subTitleLocal.getLength();
+                    int length = subTitleLocal.GetLength();
                     for (int i = 0; i < length; i++)
                     {
                         String sTime = subTitleLocal.startTime[i].ToString("HH:mm:ss.ff");
@@ -388,7 +450,7 @@ namespace SubCSharp
         private void WriteSRT(String path)
         {
             String subExport = "";
-            int length = subTitleLocal.getLength();
+            int length = subTitleLocal.GetLength();
             for (int i = 0; i < length; i++)
             {
                 String sTime = subTitleLocal.startTime[i].ToString("HH:mm:ss,fff");
@@ -405,7 +467,7 @@ namespace SubCSharp
         private void WriteWebVTT(String path)
         {
             String subExport = "WEBVTT\n\n";
-            int length = subTitleLocal.getLength();
+            int length = subTitleLocal.GetLength();
             for (int i = 0; i < length; i++)
             {
                 String sTime = subTitleLocal.startTime[i].ToString("HH:mm:ss.fff");
@@ -422,7 +484,7 @@ namespace SubCSharp
         private void WriteWSRT(String path)
         {
             String subExport = "";
-            int length = subTitleLocal.getLength();
+            int length = subTitleLocal.GetLength();
             for (int i = 0; i < length; i++)
             {
                 String sTime = subTitleLocal.startTime[i].ToString("HH:mm:ss.fff");
@@ -478,6 +540,9 @@ namespace SubCSharp
             String extensionOutput = System.IO.Path.GetExtension(output).ToLower();
             switch (extensionInput) //Read file
             {
+                case (".ass"): case(".ssa"):
+                    ReadASS(input);
+                    break;
                 case (".dfxp"): case(".ttml"):
                     ReadDFXP(input);
                     break;

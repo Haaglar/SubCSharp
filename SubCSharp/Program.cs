@@ -19,9 +19,12 @@ namespace SubCSharp
             if(File.Exists(args[0]) && Uri.IsWellFormedUriString(args[1],UriKind.RelativeOrAbsolute))// file in/out
             {
                 SubtitleConverter subConv = new SubtitleConverter();
-                subConv.ConvertSubtitle(args[0], args[1]);
-                Console.WriteLine("Complete");
-                return 0;                
+                if (subConv.ConvertSubtitle(args[0], args[1]))
+                {
+                    Console.WriteLine("Complete");
+                    return 0;
+                }
+               return 3;                
             }
             Console.WriteLine("Invalid path for input/output");
             return 2;
