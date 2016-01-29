@@ -8,6 +8,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml;
 
+
 namespace SubCSharp
 {
     public class SubtitleConverter
@@ -586,7 +587,7 @@ namespace SubCSharp
         /// Add time for the local format
         /// </summary>
         /// <param name="timeMetric"></param>
-        private void AdjustTimingLocalAdd(String timeMetric)
+        public void AdjustTimingLocalAdd(String timeMetric)
         {
             TimeSpan ts = ParseTimeMetricTimeSpan(timeMetric);
             foreach(SubtitleEntry entry in subTitleLocal)
@@ -595,6 +596,39 @@ namespace SubCSharp
                 entry.endTime = entry.endTime.Add(ts);
             }
         }
+
+        /// <summary>
+        /// Subtract time for the local format
+        /// </summary>
+        /// <param name="timeMetric"></param>
+        public void AdjustTimingLocalSub(String timeMetric)
+        {
+            TimeSpan ts = ParseTimeMetricTimeSpan(timeMetric);
+            foreach (SubtitleEntry entry in subTitleLocal)
+            {
+                DateTime sTNew  = entry.startTime.Subtract(ts);
+                DateTime eTNew = entry.endTime.Subtract(ts);
+                if(sTNew.DayOfYear == entry.startTime.DayOfYear) //Need to check if it underflowed
+                {
+                    entry.startTime = sTNew;
+                }
+                else                                             //It underflowed
+                {
+                    entry.startTime = new DateTime(entry.startTime.Year, entry.startTime.Month, entry.startTime.Day, 0, 0, 0, 0, entry.startTime.Kind);
+                }
+
+                if(eTNew.DayOfYear == entry.endTime.DayOfYear) //Need to check if it underflowed
+                {
+                    entry.endTime = eTNew;
+                }
+                else                                             //It underflowed
+                {
+                    entry.endTime = new DateTime(entry.endTime.Year, entry.endTime.Month, entry.endTime.Day, 0, 0, 0,0, entry.endTime.Kind);
+                }
+
+            }
+        }
+
         /// <summary>
         /// Read a subtitle from the specified input path / extension
         /// </summary>
@@ -684,7 +718,11 @@ namespace SubCSharp
         {
 
             if (!ReadSubtitle(input)) return false;
-            if (!timeshift.Equals("")) AdjustTimingLocalAdd(timeshift);
+            if (!timeshift.Equals(""))//Adjust time
+            {
+                if (timeshift[0] == '-') AdjustTimingLocalSub(timeshift);
+                else AdjustTimingLocalAdd(timeshift);
+            }
             if (!WriteSubtitle(output)) return false;
             return true;
         }

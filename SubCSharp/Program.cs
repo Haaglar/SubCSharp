@@ -22,6 +22,8 @@ namespace SubCSharp
                 if (args.Length == 3)
                 {
                     subConv.ConvertSubtitle(args[0], args[1], args[2]);
+                    Console.WriteLine("Complete");
+                    return 0;
                 }
                 else if(subConv.ConvertSubtitle(args[0], args[1]))
                 {
