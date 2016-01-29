@@ -14,7 +14,7 @@ namespace SubCSharp
     {
         //State for WSRT & Webvvt reading
         private enum SState { Empty, Adding, Iterating, Comment, Timestamp };
-        private static String[] SpaceArray = new String[] { " " }; //Dont want to keep recreating it
+        private static String[] SpaceArray = new String[] { " " }; //Dont want to keep recreating these
         private static String[] NewLineArray = new String[] { "\n" };
         private static String[] CommaArray = new String[] { "," };
 
@@ -43,8 +43,8 @@ namespace SubCSharp
             using (StreamReader assFileSR = new StreamReader(path)) //Read file to string
             {
                 subContent = assFileSR.ReadToEnd();
-                subContent = Regex.Replace(subContent, @"\{[^}]*\}", ""); //Remove all additional styling
             }
+            subContent = Regex.Replace(subContent, @"\{[^}]*\}", ""); //Remove all additional styling
             using (StringReader assFile = new StringReader(subContent)) 
             {
                 String line = "";
@@ -121,7 +121,7 @@ namespace SubCSharp
                     bool beginSuc = DateTime.TryParse(begin, out beginTime);
                     if (!beginSuc) //If that failed parse it differently
                     {
-                        beginTime = parseTimeMetric(begin);
+                        beginTime = ParseTimeMetric(begin);
                     }
 
                     String end = reader.GetAttribute("end");
@@ -129,7 +129,7 @@ namespace SubCSharp
 
                     if (!endSuc) //If that failed parse it differently
                     {
-                        endTime = parseTimeMetric(end);
+                        endTime = ParseTimeMetric(end);
                     }
 
                     String text = reader.ReadInnerXml();
@@ -148,6 +148,7 @@ namespace SubCSharp
         private void ReadSRT(String path)
         {
             String raw = File.ReadAllText(path);
+            raw = Regex.Replace(raw, @"<[^>]*>", "");  
             String[] split = Regex.Split(raw, @"\n\n[0-9]+\n"); //Each etnry can be separted like this, a subtitle cannot contain a blank line followed by a line containing only a decimal number appartently
             //First case is a bit different as it has an extra row or maybe junk
             String case1 = split[0].TrimStart();
@@ -522,7 +523,7 @@ namespace SubCSharp
         /// </summary>
         /// <param name="metric">The metric string</param>
         /// <returns>The datetime equivilent</returns>
-        private DateTime parseTimeMetric(String metric)
+        private DateTime ParseTimeMetric(String metric)
         {
             DateTime time = new DateTime();
             Regex rg = new Regex(@"([0-9.]+)([a-z]+)");
@@ -550,22 +551,66 @@ namespace SubCSharp
         }
 
         /// <summary>
-        /// Convert a subtitle, supports
-        /// DFXP/TTML, SRT, WSRT, vtt;
+        /// Parses a timemetric ie 12h31m2s44ms
         /// </summary>
-        /// <param name="input">The path to the subtitle to convert</param>
-        /// <param name="output">The path to the location to save, and file name/type to convert to</param>
-        public bool ConvertSubtitle(String input, String output)
+        /// <param name="metric">The metric string</param>
+        /// <returns>The Timespan equivilent</returns>
+        private TimeSpan ParseTimeMetricTimeSpan(String metric)
+        {
+            TimeSpan time = TimeSpan.Zero;
+            Regex rg = new Regex(@"([0-9.]+)([a-z]+)");
+            MatchCollection mtchs = rg.Matches(metric);
+            foreach (Match match in mtchs)
+            {
+                float st = float.Parse(match.Groups[1].Value);
+                switch (match.Groups[2].Value)
+                {
+                    case ("h"):
+                        time = time.Add(TimeSpan.FromHours(st));
+                        break;
+                    case ("m"):
+                        time = time.Add(TimeSpan.FromMinutes(st));
+                        break;
+                    case ("s"):
+                        time = time.Add(TimeSpan.FromSeconds(st));
+                        break;
+                    case ("ms"):
+                        time = time.Add(TimeSpan.FromMilliseconds(st));
+                        break;
+                }
+            }
+            return time;
+        }
+
+        /// <summary>
+        /// Add time for the local format
+        /// </summary>
+        /// <param name="timeMetric"></param>
+        private void AdjustTimingLocalAdd(String timeMetric)
+        {
+            TimeSpan ts = ParseTimeMetricTimeSpan(timeMetric);
+            foreach(SubtitleEntry entry in subTitleLocal)
+            {
+                entry.startTime = entry.startTime.Add(ts);
+                entry.endTime = entry.endTime.Add(ts);
+            }
+        }
+        /// <summary>
+        /// Read a subtitle from the specified input path / extension
+        /// </summary>
+        /// <param name="input"></param>
+        public bool ReadSubtitle(String input)
         {
             subTitleLocal = new List<SubtitleEntry>();
             String extensionInput = System.IO.Path.GetExtension(input).ToLower();
-            String extensionOutput = System.IO.Path.GetExtension(output).ToLower();
             switch (extensionInput) //Read file
             {
-                case (".ass"): case(".ssa"):
+                case (".ass"):
+                case (".ssa"):
                     ReadASS(input);
                     break;
-                case (".dfxp"): case(".ttml"):
+                case (".dfxp"):
+                case (".ttml"):
                     ReadDFXP(input);
                     break;
                 case (".srt"):
@@ -581,12 +626,25 @@ namespace SubCSharp
                     Console.WriteLine("Invalid read file format");
                     return false;
             }
+            return true;
+        }
+        /// <summary>
+        /// Writes a subtitle to the specified output path / extension
+        /// </summary>
+        /// <param name="output"></param>
+        /// <returns></returns>
+        public bool WriteSubtitle(String output)
+        {
+            String extensionOutput = System.IO.Path.GetExtension(output).ToLower();
+
             switch (extensionOutput) //Write to file
             {
-                case (".ass"): case (".ssa"):
+                case (".ass"):
+                case (".ssa"):
                     WriteASS(output);
                     break;
-                case (".dfxp"): case(".ttml"):
+                case (".dfxp"):
+                case (".ttml"):
                     WriteDFXP(output);
                     break;
                 case (".srt"):
@@ -602,6 +660,32 @@ namespace SubCSharp
                     Console.WriteLine("Invalid write file format");
                     return false;
             }
+            return true;
+        }
+        /// <summary>
+        /// Convert a subtitle, supports specififed by the input and output file extension
+        /// ASS/SSA DFXP/TTML, SRT, WSRT, VTT;
+        /// </summary>
+        /// <param name="input">The path to the subtitle to convert</param>
+        /// <param name="output">The path to the location to save, and file name/type to convert to</param>
+        public bool ConvertSubtitle(String input, String output)
+        {
+            return ConvertSubtitle(input, output, "");
+        }
+        /// <summary>
+        /// Convert a subtitle, supports specififed by the input and output file extension
+        /// ASS/SSA DFXP/TTML, SRT, WSRT, VTT;
+        /// </summary>
+        /// <param name="input">The path to the subtitle to convert</param>
+        /// <param name="output">The path to the location to save, and file name/type to convert to</param>
+        /// <param name="timeshift"> The time to shift the subtitle</param>
+        /// <returns></returns>
+        public bool ConvertSubtitle(String input, String output, String timeshift)
+        {
+
+            if (!ReadSubtitle(input)) return false;
+            if (!timeshift.Equals("")) AdjustTimingLocalAdd(timeshift);
+            if (!WriteSubtitle(output)) return false;
             return true;
         }
     }

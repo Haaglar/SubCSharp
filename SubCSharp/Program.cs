@@ -11,15 +11,19 @@ namespace SubCSharp
     {
         static int Main(string[] args)
         {
-            if (args.Length != 2)
+            if (args.Length < 2 || args.Length > 3)
             {
-                Console.WriteLine("Usage: SubCSharp.exe input output");
+                Console.WriteLine("Usage: SubCSharp.exe input output timeshift(optional)");
                 return 1;
             }
             if(File.Exists(args[0]) && Uri.IsWellFormedUriString(args[1],UriKind.RelativeOrAbsolute))// file in/out
             {
                 SubtitleConverter subConv = new SubtitleConverter();
-                if (subConv.ConvertSubtitle(args[0], args[1]))
+                if (args.Length == 3)
+                {
+                    subConv.ConvertSubtitle(args[0], args[1], args[2]);
+                }
+                else if(subConv.ConvertSubtitle(args[0], args[1]))
                 {
                     Console.WriteLine("Complete");
                     return 0;
