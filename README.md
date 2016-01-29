@@ -9,7 +9,7 @@ Supports read/write to the following formats.
 -  (Advance) Substation Alpha (.ass/.ssa)
 -  Timed Text Markup Language (.dfxp/.ttml)
 -  Subrip (.srt)
--  Subviewer (.sbv)
+-  Subviewer (.sub)
 -  WebSRT (.wsrt)
 -  WebVTT (.vtt)
 
