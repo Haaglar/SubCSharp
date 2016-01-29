@@ -15,6 +15,7 @@ namespace SubCSharp
     {
         //State for WSRT & Webvvt reading
         private enum SState { Empty, Adding, Iterating, Comment, Timestamp };
+        private enum SSView { Empty, Timestamp, Content };
         private static String[] SpaceArray = new String[] { " " }; //Dont want to keep recreating these
         private static String[] NewLineArray = new String[] { "\n" };
         private static String[] CommaArray = new String[] { "," };
@@ -142,6 +143,46 @@ namespace SubCSharp
             System.IO.File.Delete(path + "_cureadtemp"); //Remove temp read file
         }
 
+        /// <summary>
+        /// Reads Subviewer 2.0 format to local format
+        /// </summary>
+        /// <param name="path">Path to the subview file</param>
+        private void ReadSubviewer(String path)
+        {
+            String raw = File.ReadAllText(path);
+            raw = Regex.Replace(raw, @"\{[^}]*\}", "");
+            //raw = raw.Replace("[br]", "\n"); //Replace newlines
+            SSView state = SSView.Empty;
+            using (StringReader sbv = new StringReader(raw))
+            {
+                DateTime sTime = new DateTime();
+                DateTime eTime = new DateTime();
+                string line;
+                string tsMatch = @"^\d\d:\d\d";
+                while((line = sbv.ReadLine()) != null)
+                {
+                    switch(state)
+                    {
+                        case SSView.Empty:
+                            if(Regex.IsMatch(line,tsMatch)) //till we find the timestamp
+                                goto case SSView.Timestamp;
+                            break;
+                        case SSView.Timestamp:
+                            string[] split = line.Split(CommaArray,StringSplitOptions.None);
+                            sTime = DateTime.ParseExact(split[0], "HH:mm:ss.ff", CultureInfo.InvariantCulture);
+                            eTime = DateTime.ParseExact(split[1], "HH:mm:ss.ff", CultureInfo.InvariantCulture);
+                            state = SSView.Content;
+                            break;
+                        case SSView.Content:
+                            subTitleLocal.Add(new SubtitleEntry(sTime,eTime,line.Replace("[br]","\n")));
+                            sbv.ReadLine(); //Blank line always after content
+                            state = SSView.Timestamp;
+                            break;
+                    }
+                }
+            }
+
+        }
         /// <summary>
         /// Converts a srt subtitle into the Catchup Grabbers subtitle format
         /// </summary>
@@ -482,6 +523,33 @@ namespace SubCSharp
             System.IO.File.WriteAllText(path, subExport);
         }
         /// <summary>
+        /// Writes the Subtite to Subviewer format
+        /// </summary>
+        /// <param name="path"></param>
+        private void WriteSubviewer(String path)
+        {
+            String subHead =   "[INFORMATION]\r\n" +
+                               "[TITLE]\r\n" +
+                               "[AUTHOR]\r\n" +
+                               "[SOURCE]\r\n" +
+                               "[PRG]\r\n" +
+                               "[FILEPATH]\r\n" +
+                               "[DELAY]\r\n" +
+                               "[CD TRACK]\r\n" +
+                               "[COMMENT]\r\n" +
+                               "[END INFORMATION]\r\n" +
+                               "[SUBTITLE]\r\n" +
+                               "[COLF]&HFFFFFF,[STYLE]no,[SIZE]18,[FONT]Arial\r\n";
+            StringBuilder subExport = new StringBuilder(subHead);
+            foreach (SubtitleEntry entry in subTitleLocal)
+            {
+                String sTime = entry.startTime.ToString("HH:mm:ss.ff");
+                String eTime = entry.endTime.ToString("HH:mm:ss.ff");
+                subExport.Append(sTime + "," + eTime + "\r\n" + entry.content.Replace("\n", "\r\n") + "\r\n\r\n");
+            }
+            System.IO.File.WriteAllText(path, subExport.ToString());
+        }
+        /// <summary>
         /// Converts the local format to Subrip format
         /// Similar to WriteSRT with an additional value added to the start;
         /// </summary>
@@ -647,6 +715,9 @@ namespace SubCSharp
                 case (".ttml"):
                     ReadDFXP(input);
                     break;
+                case (".sub"):
+                    ReadSubviewer(input);
+                    break;
                 case (".srt"):
                     ReadSRT(input);
                     break;
@@ -680,6 +751,9 @@ namespace SubCSharp
                 case (".dfxp"):
                 case (".ttml"):
                     WriteDFXP(output);
+                    break;
+                case (".sub"):
+                    WriteSubviewer(output);
                     break;
                 case (".srt"):
                     WriteSRT(output);
