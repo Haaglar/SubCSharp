@@ -13,4 +13,6 @@ Supports read/write to the following formats.
 -  WebSRT (.wsrt)
 -  WebVTT (.vtt)
 
+Supports read only to the following formats
+- MicroDVD (.sub)
 Requires read/write permissions in both input and output directories.

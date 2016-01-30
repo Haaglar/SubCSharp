@@ -15,10 +15,13 @@ namespace SubCSharp
     {
         //State for WSRT & Webvvt reading
         private enum SState { Empty, Adding, Iterating, Comment, Timestamp };
-        private enum SSView { Empty, Timestamp, Content };
+        private enum SSView { Empty, Timestamp, Content }
+        private enum SubFormat { NoMatch, SubViewer, MicroDVD};
+
         private static String[] SpaceArray = new String[] { " " }; //Dont want to keep recreating these
         private static String[] NewLineArray = new String[] { "\n" };
         private static String[] CommaArray = new String[] { "," };
+        private static String[] CloseSquigArray = new String[] { "}" };
 
         //Internal sub format to allow easy conversion
         private class SubtitleEntry
@@ -109,7 +112,7 @@ namespace SubCSharp
         /// <param name="path">The path to the dfxp to convert</param>
         private void ReadDFXP(String path)
         {
-            String raw = File.ReadAllText(path);
+            String raw = File.ReadAllText(path, Encoding.Default);
             System.IO.File.WriteAllText(path + "_cureadtemp", raw.Replace("\r\n", "\n")); //Need to work with a unix format
 
             using (XmlTextReader reader = new XmlTextReader(path + "_cureadtemp"))
@@ -142,14 +145,91 @@ namespace SubCSharp
             }
             System.IO.File.Delete(path + "_cureadtemp"); //Remove temp read file
         }
+        /// <summary>
+        /// Reads a MicroDVD subtitle file
+        /// </summary>
+        /// <param name="path"></param>
+        private void ReadMicroDVD(String path)
+        {
+            //\d+\.\d+
+            DateTime startTime;
+            DateTime endTime;
+            Regex regexSplit = new Regex(@"(?<=\})");
+            Regex removeMeta = new Regex( @"\{[^}]*\}");
+            String raw = File.ReadAllText(path,Encoding.Default);
+            float fps;
+            using (StringReader mDVD = new StringReader(raw))
+            {
+                //First case
+                string line = mDVD.ReadLine(); //First case options for framerate of video need to be handled
+                string beginFrameStr;          //String of frames for starttime
+                string endFrameStr;             //String of frames for endtime
+                string[] splitFirst = regexSplit.Split(line, 3);
+                string contentFirst = splitFirst[2].Replace("[","").Replace("]","").Replace(",",".");
+
+                if (!float.TryParse(contentFirst, out fps))
+                {
+                    fps = 23.976f;
+                    beginFrameStr = splitFirst[0].Substring(1, splitFirst[0].Length - 2);
+                    endFrameStr = splitFirst[1].Substring(1, splitFirst[1].Length - 2);
+                    startTime = framesToDateTime(int.Parse(beginFrameStr), fps);
+                    endTime = framesToDateTime(int.Parse(endFrameStr), fps);
+                    string content = removeMeta.Replace(splitFirst[2], "").Replace("|", "\n");
+                    subTitleLocal.Add(new SubtitleEntry(startTime, endTime, content));
+                }
+                while ((line = mDVD.ReadLine()) != null)
+                {
+                    line = line.Trim();
+                    if (line == "") continue;
+                    string[] split = regexSplit.Split(line,3);
+                    //Remove start and end {}
+                    beginFrameStr = split[0].Substring(1,split[0].Length-2);
+                    endFrameStr = split[1].Substring(1,split[1].Length-2);
+                    //Parse into datetime
+                    startTime = framesToDateTime(int.Parse(beginFrameStr), fps);
+                    endTime = framesToDateTime(int.Parse(endFrameStr), fps);
+                    //Remove markup and add newlines
+                    string content = removeMeta.Replace(split[2],"").Replace("|","\n");
+                    subTitleLocal.Add(new SubtitleEntry(startTime, endTime, content));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Handles analysizing the type of .sub format (microdvd, subviewer)
+        /// </summary>
+        /// <param name="path">Path to the subtitle to read</param>
+        private void ReadSub(String path)
+        {
+            String head;
+            SubFormat format = SubFormat.NoMatch;
+            using (StreamReader file = new StreamReader(path))
+            {
+                
+                head = file.ReadLine();
+                if (head.StartsWith("[")) format = SubFormat.SubViewer;
+                else if (head.StartsWith("{")) format = SubFormat.MicroDVD;
+            }
+            switch(format)
+            {
+                case(SubFormat.SubViewer):
+                    ReadSubViewer(path);
+                    break;
+                case(SubFormat.MicroDVD):
+                    ReadMicroDVD(path);
+                    break;
+                default:
+                    break;
+            }
+        }
 
         /// <summary>
         /// Reads Subviewer 2.0 format to local format
         /// </summary>
         /// <param name="path">Path to the subview file</param>
-        private void ReadSubviewer(String path)
+        private void ReadSubViewer(String path)
         {
-            String raw = File.ReadAllText(path);
+            String raw = File.ReadAllText(path, Encoding.Default);
             raw = Regex.Replace(raw, @"\{[^}]*\}", "");
             //raw = raw.Replace("[br]", "\n"); //Replace newlines
             SSView state = SSView.Empty;
@@ -161,6 +241,7 @@ namespace SubCSharp
                 string tsMatch = @"^\d\d:\d\d";
                 while((line = sbv.ReadLine()) != null)
                 {
+                    if (line.Trim().Equals("")) continue;//Blank lines
                     switch(state)
                     {
                         case SSView.Empty:
@@ -181,7 +262,6 @@ namespace SubCSharp
                     }
                 }
             }
-
         }
         /// <summary>
         /// Converts a srt subtitle into the Catchup Grabbers subtitle format
@@ -189,7 +269,7 @@ namespace SubCSharp
         /// <param name="path">Input path for the subtitle</param>
         private void ReadSRT(String path)
         {
-            String raw = File.ReadAllText(path);
+            String raw = File.ReadAllText(path, Encoding.Default);
             raw = Regex.Replace(raw, @"<[^>]*>", "");  
             String[] split = Regex.Split(raw, @"\n\n[0-9]+\n"); //Each etnry can be separted like this, a subtitle cannot contain a blank line followed by a line containing only a decimal number appartently
             //First case is a bit different as it has an extra row or maybe junk
@@ -237,7 +317,7 @@ namespace SubCSharp
         /// <param name="path">The path to the subtitle to convert</param>
         private void ReadWebVTT(String path)
         {
-            String raw = File.ReadAllText(path);
+            String raw = File.ReadAllText(path, Encoding.Default);
             raw = raw.Replace("\r\n", "\n");    //Replace Windows format
             raw = raw.Replace("\r", "\n");      //Replace old Mac format (it's in the specs to do so)
             raw = raw.Trim();
@@ -318,7 +398,7 @@ namespace SubCSharp
         {
             //Very similar to ReadSRT, however removes additions such as cues settings
             // Neeed to support addition info at http://annodex.net/~silvia/tmp/WebSRT/#slide1
-            String raw = File.ReadAllText(path);
+            String raw = File.ReadAllText(path, Encoding.Default);
             raw = raw.Replace("\r\n", "\n");
             String[] split = Regex.Split(raw, @"\n\n[0-9]+\n"); //Each etnry can be separted like this
             //First case is a bit different as it has an extra row or maybe junk
@@ -368,7 +448,7 @@ namespace SubCSharp
         private void ReadWSRT2(String path)
         {
 
-            String raw = File.ReadAllText(path);
+            String raw = File.ReadAllText(path, Encoding.Default);
             raw = raw.Replace("\r\n", "\n");
             raw = raw.Trim();
             var splited = raw.Split(NewLineArray, StringSplitOptions.None).ToList();
@@ -652,6 +732,19 @@ namespace SubCSharp
         }
 
         /// <summary>
+        /// Converts an int representing frames to a datetime object
+        /// </summary>
+        /// <param name="frames">The number of frames</param>
+        /// <param name="fps">The frames per second</param>
+        /// <returns>The created datetime</returns>
+        private DateTime framesToDateTime(int frames, float fps)
+        {
+            DateTime dt = new DateTime();
+            dt = dt.AddSeconds(frames / fps);
+            return dt;
+        }
+
+        /// <summary>
         /// Add time for the local format
         /// </summary>
         /// <param name="timeMetric"></param>
@@ -716,7 +809,7 @@ namespace SubCSharp
                     ReadDFXP(input);
                     break;
                 case (".sub"):
-                    ReadSubviewer(input);
+                    ReadSub(input);
                     break;
                 case (".srt"):
                     ReadSRT(input);
