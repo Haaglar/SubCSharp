@@ -15,4 +15,5 @@ Supports read/write to the following formats.
 
 Supports read only to the following formats
 - MicroDVD (.sub)
+
 Requires read/write permissions in both input and output directories.
