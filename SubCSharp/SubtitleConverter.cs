@@ -84,27 +84,7 @@ namespace SubCSharp
             //Since ass/ssa can be in any order we must do this;
             //It shouldn't mess up already ordered for the next part
             subTitleLocal = subTitleLocal.OrderBy(o => o.startTime).ToList();
-            //Remove dupicale start times and join to one..
-            //Taken from and modified from http://stackoverflow.com/questions/14918668/find-duplicates-and-merge-items-in-a-list
-            for (int i = 0; i < subTitleLocal.Count - 1; i++)
-            {
-                var item = subTitleLocal[i];
-                for (int j = i + 1; j < subTitleLocal.Count; )
-                {
-                    var anotherItem = subTitleLocal[j];
-                    if (item.startTime > anotherItem.startTime) break; //No point contiuning as the list is sorted
-                    if (item.startTime.Equals(anotherItem.startTime)) 
-                    {
-                        //We just join the to and hope that they were in the right order
-                        //TODO: check y offset and order by that
-                        item.content = item.content +"\n" + anotherItem.content; 
-                        subTitleLocal.RemoveAt(j); 
-                    }
-                    else
-                        j++;
-                }
-            }
-            
+            JoinSameStart();
         }
         /// <summary>
         /// Converts a dfxp subtitle into the Catchup Grabbers subtitle format
@@ -112,7 +92,7 @@ namespace SubCSharp
         /// <param name="path">The path to the dfxp to convert</param>
         private void ReadDFXP(String path)
         {
-            String raw = File.ReadAllText(path, Encoding.Default);
+            String raw = File.ReadAllText(path, Encoding.UTF8);
             System.IO.File.WriteAllText(path + "_cureadtemp", raw.Replace("\r\n", "\n")); //Need to work with a unix format
 
             using (XmlTextReader reader = new XmlTextReader(path + "_cureadtemp"))
@@ -144,6 +124,7 @@ namespace SubCSharp
                 }
             }
             System.IO.File.Delete(path + "_cureadtemp"); //Remove temp read file
+            JoinSameStart();
         }
         /// <summary>
         /// Reads a MicroDVD subtitle file
@@ -667,6 +648,32 @@ namespace SubCSharp
         }
 
         //--------------------------------------------Misc stuff -----------------//
+        /// <summary>
+        ///Remove dupicale start times and join to one
+        ///Taken from and modified from http://stackoverflow.com/questions/14918668/find-duplicates-and-merge-items-in-a-list  
+        /// </summary>
+        private void JoinSameStart()
+        {
+            for (int i = 0; i < subTitleLocal.Count - 1; i++)
+            {
+                var item = subTitleLocal[i];
+                for (int j = i + 1; j < subTitleLocal.Count; )
+                {
+                    var anotherItem = subTitleLocal[j];
+                    if (item.startTime > anotherItem.startTime) break; //No point contiuning as the list is sorted
+                    if (item.startTime.Equals(anotherItem.startTime))
+                    {
+                        //We just join the to and hope that they were in the right order
+                        //TODO: check y offset and order by that
+                        item.content = item.content + "\n" + anotherItem.content;
+                        subTitleLocal.RemoveAt(j);
+                    }
+                    else
+                        j++;
+                }
+            }
+        }
+
         /// <summary>
         /// Parses a timemetric ie 12h31m2s44ms
         /// </summary>
