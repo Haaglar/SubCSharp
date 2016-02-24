@@ -17,14 +17,15 @@ namespace SubCSharp
         private enum SState { Empty, Adding, Iterating, Comment, Timestamp };
         private enum SSView { Empty, Timestamp, Content }
         private enum SubFormat { NoMatch, SubViewer, MicroDVD};
-        private enum NewLineOption { Default, Windows, Unix, MacOLD}
+
+        public enum SubtitleNewLineOption {Default, Windows, Unix, MacOLD}
 
         private static String[] SpaceArray = new String[] { " " }; //Dont want to keep recreating these
         private static String[] NewLineArray = new String[] { "\n" };
         private static String[] CommaArray = new String[] { "," };
         private static String[] CloseSquigArray = new String[] { "}" };
 
-        
+        public SubtitleNewLineOption subtitleNewLineOption = SubtitleNewLineOption.Default;
 
         //Internal sub format to allow easy conversion
         private class SubtitleEntry
@@ -42,7 +43,14 @@ namespace SubCSharp
 
         List<SubtitleEntry> subTitleLocal;
 
-        public SubtitleConverter() { }
+        //Dictionarty /HashMap whatever
+        Dictionary<SubtitleNewLineOption, string> nlDict = new Dictionary<SubtitleNewLineOption, string>();
+
+        public SubtitleConverter() {
+            nlDict.Add(SubtitleNewLineOption.MacOLD, "\r");
+            nlDict.Add(SubtitleNewLineOption.Unix, "\n");
+            nlDict.Add(SubtitleNewLineOption.Windows, "\r\n");
+        }
         //-------------------------------------------------------------------------Read Formats---------------//
 
         private void ReadASS(String path)
@@ -500,17 +508,22 @@ namespace SubCSharp
         /// <param name="path"></param>
         private void WriteASS(String path)
         {
-            String head = "[Script Info]\n"      +
-                          "Title: <untitled>\n"  +
-                          "ScriptType: v4.00+\n" +
-                          "Collisions: Normal\n" +
-                          "PlayDepth: 0\n\n";
+            String nlASS = "\n";
+            if(subtitleNewLineOption != SubtitleNewLineOption.Default)
+            {
+                nlASS = nlDict[subtitleNewLineOption];
+            }
+            String head = "[Script Info]"      + nlASS +
+                          "Title: <untitled>"  + nlASS +
+                          "ScriptType: v4.00+" + nlASS +
+                          "Collisions: Normal" + nlASS +
+                          "PlayDepth: 0" + nlASS + nlASS;
 
-            String styles = "[v4+ Styles]\n" +
-                            "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n" +
+            String styles = "[v4+ Styles]" + nlASS +
+                            "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding" + nlASS +
                             "Style: Default,Arial,20,&H00FFFFFF,&H000080FF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,2,2,2,10,10,20,0\n\n";
-            String events = "[Events]\n" +
-                           "Format: Layer, Start, End, Style, Actor, MarginL, MarginR, MarginV, Effect, Text\n";
+            String events = "[Events]" + nlASS +
+                           "Format: Layer, Start, End, Style, Actor, MarginL, MarginR, MarginV, Effect, Text" + nlASS;
             StringBuilder builder = new StringBuilder();
             builder.Append(head);
             builder.Append(styles);
@@ -519,7 +532,7 @@ namespace SubCSharp
             {
                 String startTime = entry.startTime.ToString("H:mm:ss.ff");
                 String endTime = entry.endTime.ToString("H:mm:ss.ff");
-                builder.Append(String.Format("Dialogue: 0,{0},{1},Default,,0,0,0,,{2}\n",startTime,endTime,entry.content.Replace("\n","\\N")));
+                builder.Append(String.Format("Dialogue: 0,{0},{1},Default,,0,0,0,,{2}" + nlASS, startTime, endTime, entry.content.Replace("\n", "\\N")));
             }
              System.IO.File.WriteAllText(path, builder.ToString());
         }
