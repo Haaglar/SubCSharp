@@ -543,6 +543,11 @@ namespace SubCSharp
         /// <param name="path">Output path for subtitle</param>
         private void WriteDFXP(String path)
         {
+            String nlDFXP = "\n";
+            if (subtitleNewLineOption != SubtitleNewLineOption.Default)
+            {
+                nlDFXP = nlDict[subtitleNewLineOption];
+            }
             String output;
             using (var ms = new MemoryStream())
             {
@@ -580,7 +585,7 @@ namespace SubCSharp
                 }
                 output = Encoding.UTF8.GetString(ms.ToArray());
             }
-            System.IO.File.WriteAllText(path, output.Replace("\r\n", "\n")); //Cause XmlTextWrite writes windows formatting          
+            System.IO.File.WriteAllText(path, output.Replace("\r\n", nlDFXP)); //Cause XmlTextWrite writes windows formatting TEMP FIX        
         }
         /// <summary>
         /// Converts the local format to Subrip format
@@ -588,6 +593,12 @@ namespace SubCSharp
         /// <param name="path">The path to the save location</param>
         private void WriteSRT(String path)
         {
+            String nlSRT = "\n";
+            if (subtitleNewLineOption != SubtitleNewLineOption.Default)
+            {
+                nlSRT = nlDict[subtitleNewLineOption];
+            }
+
             String subExport = "";
             int i = 0;
             foreach (SubtitleEntry entry in subTitleLocal)
@@ -595,7 +606,7 @@ namespace SubCSharp
                 i++;
                 String sTime = entry.startTime.ToString("HH:mm:ss,fff");
                 String eTime = entry.endTime.ToString("HH:mm:ss,fff");
-                subExport = subExport + i + "\n" + sTime + " --> " + eTime + "\n" + entry.content + "\n" + "\n";
+                subExport = subExport + i + nlSRT + sTime + " --> " + eTime + nlSRT + entry.content + nlSRT + nlSRT;
             }
             System.IO.File.WriteAllText(path, subExport);
         }
@@ -605,24 +616,30 @@ namespace SubCSharp
         /// <param name="path"></param>
         private void WriteSubviewer(String path)
         {
-            String subHead =   "[INFORMATION]\r\n" +
-                               "[TITLE]\r\n" +
-                               "[AUTHOR]\r\n" +
-                               "[SOURCE]\r\n" +
-                               "[PRG]\r\n" +
-                               "[FILEPATH]\r\n" +
-                               "[DELAY]\r\n" +
-                               "[CD TRACK]\r\n" +
-                               "[COMMENT]\r\n" +
-                               "[END INFORMATION]\r\n" +
-                               "[SUBTITLE]\r\n" +
-                               "[COLF]&HFFFFFF,[STYLE]no,[SIZE]18,[FONT]Arial\r\n";
+            String nlSubv = "\r\n";
+            if (subtitleNewLineOption != SubtitleNewLineOption.Default)
+            {
+                nlSubv = nlDict[subtitleNewLineOption];
+            }
+
+            String subHead =   "[INFORMATION]" + nlSubv+
+                               "[TITLE]" + nlSubv+
+                               "[AUTHOR]" + nlSubv+
+                               "[SOURCE]" + nlSubv +
+                               "[PRG]" + nlSubv +
+                               "[FILEPATH]" + nlSubv +
+                               "[DELAY]" + nlSubv +
+                               "[CD TRACK]" + nlSubv +
+                               "[COMMENT]" + nlSubv +
+                               "[END INFORMATION]" + nlSubv +
+                               "[SUBTITLE]" + nlSubv +
+                               "[COLF]&HFFFFFF,[STYLE]no,[SIZE]18,[FONT]Arial"+ nlSubv;
             StringBuilder subExport = new StringBuilder(subHead);
             foreach (SubtitleEntry entry in subTitleLocal)
             {
                 String sTime = entry.startTime.ToString("HH:mm:ss.ff");
                 String eTime = entry.endTime.ToString("HH:mm:ss.ff");
-                subExport.Append(sTime + "," + eTime + "\r\n" + entry.content.Replace("\n", "\r\n") + "\r\n\r\n");
+                subExport.Append(sTime + "," + eTime + nlSubv + entry.content.Replace("\n", nlSubv) + nlSubv + nlSubv);
             }
             System.IO.File.WriteAllText(path, subExport.ToString());
         }
@@ -633,14 +650,19 @@ namespace SubCSharp
         /// <param name="path"></param>
         private void WriteWebVTT(String path)
         {
-            String subExport = "WEBVTT\n\n";
+            String nlWV = "\n";
+            if (subtitleNewLineOption != SubtitleNewLineOption.Default)
+            {
+                nlWV = nlDict[subtitleNewLineOption];
+            }
+            String subExport = "WEBVTT" + nlWV + nlWV;
             int i = 0;
             foreach (SubtitleEntry entry in subTitleLocal)
             {
                 i++;
                 String sTime = entry.startTime.ToString("HH:mm:ss.fff");
                 String eTime = entry.endTime.ToString("HH:mm:ss.fff");
-                subExport = subExport + i + "\n" + sTime + " --> " + eTime + "\n" + entry.content.Replace("\n\n", "\n") + "\n" + "\n"; //Double newline only allowed at end;
+                subExport = subExport + i + nlWV + sTime + " --> " + eTime + nlWV + entry.content.Replace("\n\n", nlWV) + nlWV + nlWV; //Double newline only allowed at end;
             }
             System.IO.File.WriteAllText(path, subExport);
         }
@@ -651,6 +673,11 @@ namespace SubCSharp
         /// <param name="path">The path to the location to save to</param>
         private void WriteWSRT(String path)
         {
+            String nlSRT = "\n";
+            if (subtitleNewLineOption != SubtitleNewLineOption.Default)
+            {
+                nlSRT = nlDict[subtitleNewLineOption];
+            }
             String subExport = "";
             int i = 0;
             foreach (SubtitleEntry entry in subTitleLocal)
@@ -658,7 +685,7 @@ namespace SubCSharp
                 i++;
                 String sTime = entry.startTime.ToString("HH:mm:ss.fff");
                 String eTime = entry.endTime.ToString("HH:mm:ss.fff");
-                subExport = subExport + i + "\n" + sTime + " --> " + eTime + "\n" + entry.content + "\n" + "\n";
+                subExport = subExport + i + nlSRT + sTime + " --> " + eTime + nlSRT + entry.content + nlSRT + nlSRT;
             }
             System.IO.File.WriteAllText(path, subExport);
         }
@@ -666,6 +693,7 @@ namespace SubCSharp
         //--------------------------------------------Misc stuff -----------------//
         /// <summary>
         ///Remove dupicale start times and join to one
+        ///Assumes the subs are sorted 
         ///Taken from and modified from http://stackoverflow.com/questions/14918668/find-duplicates-and-merge-items-in-a-list  
         /// </summary>
         private void JoinSameStart()
@@ -888,7 +916,7 @@ namespace SubCSharp
         }
         /// <summary>
         /// Convert a subtitle, supports specififed by the input and output file extension
-        /// ASS/SSA DFXP/TTML, SRT, WSRT, VTT;
+        /// ASS/SSA DFXP/TTML, SUB, SRT, WSRT, VTT;
         /// </summary>
         /// <param name="input">The path to the subtitle to convert</param>
         /// <param name="output">The path to the location to save, and file name/type to convert to</param>
@@ -898,7 +926,7 @@ namespace SubCSharp
         }
         /// <summary>
         /// Convert a subtitle, supports specififed by the input and output file extension
-        /// ASS/SSA DFXP/TTML, SRT, WSRT, VTT;
+        /// ASS/SSA DFXP/TTML, SUB, SRT, WSRT, VTT;
         /// </summary>
         /// <param name="input">The path to the subtitle to convert</param>
         /// <param name="output">The path to the location to save, and file name/type to convert to</param>
