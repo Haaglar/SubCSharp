@@ -17,11 +17,14 @@ namespace SubCSharp
         private enum SState { Empty, Adding, Iterating, Comment, Timestamp };
         private enum SSView { Empty, Timestamp, Content }
         private enum SubFormat { NoMatch, SubViewer, MicroDVD};
+        private enum NewLineOption { Default, Windows, Unix, MacOLD}
 
         private static String[] SpaceArray = new String[] { " " }; //Dont want to keep recreating these
         private static String[] NewLineArray = new String[] { "\n" };
         private static String[] CommaArray = new String[] { "," };
         private static String[] CloseSquigArray = new String[] { "}" };
+
+        
 
         //Internal sub format to allow easy conversion
         private class SubtitleEntry
