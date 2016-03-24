@@ -103,10 +103,7 @@ namespace SubCSharp
         /// <param name="path">The path to the dfxp to convert</param>
         private void ReadDFXP(String path)
         {
-            String raw = File.ReadAllText(path, Encoding.UTF8);
-            System.IO.File.WriteAllText(path + "_cureadtemp", raw.Replace("\r\n", "\n")); //Need to work with a unix format
-
-            using (XmlTextReader reader = new XmlTextReader(path + "_cureadtemp"))
+            using (XmlTextReader reader = new XmlTextReader(path))
             {
                 reader.Namespaces = false;// Namespaces are annoying, screw them.
                 while (reader.ReadToFollowing("p")) //Read all p nodes
@@ -129,12 +126,11 @@ namespace SubCSharp
                     }
 
                     String text = reader.ReadInnerXml();
-                    text = Regex.Replace(text, "\n( *)", ""); //Debeutify xml node
-                    text = text.Replace("<br /><br />", "\n").Replace("<br/><br/>", "\n").Replace("<br />", "\n").Replace("<br/>", "\n"); //Depends on the format remove all
+                    text = Regex.Replace(text, "(\r\n?|\n) *", ""); //Debeutify xml node
+                    text = text.Replace("<br /><br />", "\n").Replace("<br />", "\n"); //Depends on the format remove all
                     subTitleLocal.Add(new SubtitleEntry(beginTime, endTime, text));
                 }
             }
-            System.IO.File.Delete(path + "_cureadtemp"); //Remove temp read file
             JoinSameStart();
         }
         /// <summary>
