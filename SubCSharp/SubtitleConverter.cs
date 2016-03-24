@@ -544,14 +544,16 @@ namespace SubCSharp
             {
                 nlDFXP = nlDict[subtitleNewLineOption];
             }
-            String output;
-            using (var ms = new MemoryStream())
+            XmlWriterSettings settings = new XmlWriterSettings
             {
-                using (XmlTextWriter writer = new XmlTextWriter(ms, System.Text.Encoding.UTF8))
+                Indent = true,
+                IndentChars = "  ", //Two spaces
+                NewLineChars = nlDFXP
+            };
+            using (var fs = new FileStream(path, FileMode.Create))
+            {
+                using (XmlWriter writer = XmlWriter.Create(fs,settings))
                 {
-                    writer.Formatting = Formatting.Indented;
-                    writer.Indentation = 2;
-
                     writer.WriteStartDocument();
                     writer.WriteStartElement("tt", "http://www.w3.org/ns/ttml");
                     writer.WriteStartElement("body");
@@ -577,11 +579,8 @@ namespace SubCSharp
                     writer.WriteEndElement();//Body
                     writer.WriteEndElement();//tt
                     writer.Flush();
-
                 }
-                output = Encoding.UTF8.GetString(ms.ToArray());
             }
-            System.IO.File.WriteAllText(path, output.Replace("\r\n", nlDFXP)); //Cause XmlTextWrite writes windows formatting TEMP FIX        
         }
         /// <summary>
         /// Converts the local format to Subrip format
