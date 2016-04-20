@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Xml;
 
 
@@ -20,10 +19,10 @@ namespace SubCSharp
 
         public enum SubtitleNewLineOption {Default, Windows, Unix, MacOLD}
 
-        private static String[] SpaceArray = new String[] { " " }; //Dont want to keep recreating these
-        private static String[] NewLineArray = new String[] { "\n" };
-        private static String[] CommaArray = new String[] { "," };
-        private static String[] CloseSquigArray = new String[] { "}" };
+        private static string[] SpaceArray = new string[] { " " }; //Dont want to keep recreating these
+        private static string[] NewLineArray = new string[] { "\n" };
+        private static string[] CommaArray = new string[] { "," };
+        private static string[] CloseSquigArray = new string[] { "}" };
 
         public SubtitleNewLineOption subtitleNewLineOption = SubtitleNewLineOption.Default;
 
@@ -32,8 +31,8 @@ namespace SubCSharp
         {
             public DateTime startTime { get; set; }
             public DateTime endTime { get; set; }
-            public String content { get; set; }
-            public SubtitleEntry(DateTime sTime, DateTime eTime, String text)
+            public string content { get; set; }
+            public SubtitleEntry(DateTime sTime, DateTime eTime, string text)
             {
                 startTime = sTime;
                 endTime = eTime;
@@ -53,9 +52,9 @@ namespace SubCSharp
         }
         //-------------------------------------------------------------------------Read Formats---------------//
 
-        private void ReadASS(String path)
+        private void ReadASS(string path)
         {
-            String subContent;// = File.ReadAllText(path, Encoding.Default);
+            string subContent;// = File.ReadAllText(path, Encoding.Default);
             using (StreamReader assFileSR = new StreamReader(path)) //Read file to string
             {
                 subContent = assFileSR.ReadToEnd();
@@ -63,7 +62,7 @@ namespace SubCSharp
             subContent = Regex.Replace(subContent, @"\{[^}]*\}", ""); //Remove all additional styling
             using (StringReader assFile = new StringReader(subContent)) 
             {
-                String line = "";
+                string line = "";
                 SState state = SState.Empty;
                 while ((line = assFile.ReadLine()) != null) //Iterate over string
                 {
@@ -82,10 +81,10 @@ namespace SubCSharp
                                 //Split into 10 Segments
                                 //Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                                 //TODO: does it require them all?, or will the magic 10 be replace based on ^
-                                String [] splitLine = line.Split(CommaArray, 10 , StringSplitOptions.None);
+                                string[] splitLine = line.Split(CommaArray, 10 , StringSplitOptions.None);
                                 DateTime beginTime = DateTime.ParseExact(splitLine[1], "H:mm:ss.ff", CultureInfo.InvariantCulture);
                                 DateTime endTime = DateTime.ParseExact(splitLine[2], "H:mm:ss.ff", CultureInfo.InvariantCulture);
-                                String text = splitLine[9].Replace("\\N", "\n");//Replace \N with actual newlines
+                                string text = splitLine[9].Replace("\\N", "\n");//Replace \N with actual newlines
                                 subTitleLocal.Add(new SubtitleEntry(beginTime, endTime, text));
                             }
                             break;
@@ -101,7 +100,7 @@ namespace SubCSharp
         /// Converts a dfxp subtitle into the Catchup Grabbers subtitle format
         /// </summary>
         /// <param name="path">The path to the dfxp to convert</param>
-        private void ReadDFXP(String path)
+        private void ReadDFXP(string path)
         {
             using (XmlTextReader reader = new XmlTextReader(path))
             {
@@ -110,14 +109,14 @@ namespace SubCSharp
                 {
                     DateTime beginTime;
                     DateTime endTime;
-                    String begin = reader.GetAttribute("begin");
+                    string begin = reader.GetAttribute("begin");
                     bool beginSuc = DateTime.TryParse(begin, out beginTime);
                     if (!beginSuc) //If that failed parse it differently
                     {
                         beginTime = ParseTimeMetric(begin);
                     }
 
-                    String end = reader.GetAttribute("end");
+                    string end = reader.GetAttribute("end");
                     bool endSuc = DateTime.TryParse(end, out endTime);
 
                     if (!endSuc) //If that failed parse it differently
@@ -125,7 +124,7 @@ namespace SubCSharp
                         endTime = ParseTimeMetric(end);
                     }
 
-                    String text = reader.ReadInnerXml();
+                    string text = reader.ReadInnerXml();
                     text = Regex.Replace(text, "(\r\n?|\n) *", ""); //Debeutify xml node
                     text = text.Replace("<br /><br />", "\n").Replace("<br />", "\n"); //Depends on the format remove all
                     subTitleLocal.Add(new SubtitleEntry(beginTime, endTime, text));
@@ -137,14 +136,14 @@ namespace SubCSharp
         /// Reads a MicroDVD subtitle file
         /// </summary>
         /// <param name="path"></param>
-        private void ReadMicroDVD(String path)
+        private void ReadMicroDVD(string path)
         {
             //\d+\.\d+
             DateTime startTime;
             DateTime endTime;
             Regex regexSplit = new Regex(@"(?<=\})");
             Regex removeMeta = new Regex( @"\{[^}]*\}");
-            String raw = File.ReadAllText(path,Encoding.Default);
+            string raw = File.ReadAllText(path,Encoding.Default);
             float fps;
             using (StringReader mDVD = new StringReader(raw))
             {
@@ -187,9 +186,9 @@ namespace SubCSharp
         /// Handles analysizing the type of .sub format (microdvd, subviewer)
         /// </summary>
         /// <param name="path">Path to the subtitle to read</param>
-        private void ReadSub(String path)
+        private void ReadSub(string path)
         {
-            String head;
+            string head;
             SubFormat format = SubFormat.NoMatch;
             using (StreamReader file = new StreamReader(path))
             {
@@ -215,9 +214,9 @@ namespace SubCSharp
         /// Reads Subviewer 2.0 format to local format
         /// </summary>
         /// <param name="path">Path to the subview file</param>
-        private void ReadSubViewer(String path)
+        private void ReadSubViewer(string path)
         {
-            String raw = File.ReadAllText(path, Encoding.Default);
+            string raw = File.ReadAllText(path, Encoding.Default);
             raw = Regex.Replace(raw, @"\{[^}]*\}", "");
             //raw = raw.Replace("[br]", "\n"); //Replace newlines
             SSView state = SSView.Empty;
@@ -255,16 +254,16 @@ namespace SubCSharp
         /// Converts a srt subtitle into the Catchup Grabbers subtitle format
         /// </summary>
         /// <param name="path">Input path for the subtitle</param>
-        private void ReadSRT(String path)
+        private void ReadSRT(string path)
         {
-            String raw = File.ReadAllText(path, Encoding.Default);
-            raw = Regex.Replace(raw, @"<[^>]*>", "");  
-            String[] split = Regex.Split(raw, @"\n\n[0-9]+\n"); //Each etnry can be separted like this, a subtitle cannot contain a blank line followed by a line containing only a decimal number appartently
+            string raw = File.ReadAllText(path, Encoding.Default);
+            raw = Regex.Replace(raw, @"<[^>]*>", "");
+            string[] split = Regex.Split(raw, @"\n\n[0-9]+\n"); //Each etnry can be separted like this, a subtitle cannot contain a blank line followed by a line containing only a decimal number appartently
             //First case is a bit different as it has an extra row or maybe junk
-            String case1 = split[0].TrimStart();
-            String[] splitc1 = case1.Split(new string[] { "\n" }, StringSplitOptions.None);
+            string case1 = split[0].TrimStart();
+            string[] splitc1 = case1.Split(new string[] { "\n" }, StringSplitOptions.None);
 
-            String[] time = Regex.Split(splitc1[1], " *--> *");           //May or may not have a space or more than 2 dashes
+            string[] time = Regex.Split(splitc1[1], " *--> *");           //May or may not have a space or more than 2 dashes
 
             DateTime beginTime;
             DateTime endTime;
@@ -272,26 +271,26 @@ namespace SubCSharp
             beginTime = DateTime.ParseExact(time[0], "HH:mm:ss,fff", CultureInfo.InvariantCulture);
             endTime = DateTime.ParseExact(time[1], "HH:mm:ss,fff", CultureInfo.InvariantCulture);
 
-            String tmp = splitc1[2];
-            foreach (String text in splitc1.Skip(3))
+            string tmp = splitc1[2];
+            foreach (string text in splitc1.Skip(3))
             {
                 tmp = tmp + "\n" + text;
             }
 
             subTitleLocal.Add(new SubtitleEntry(beginTime, endTime, tmp));
             //Main loop
-            foreach (String sub in split.Skip(1))
+            foreach (string sub in split.Skip(1))
             {
-                String[] splitc2 = sub.Split(new string[] { "\n" }, StringSplitOptions.None);
+                string[] splitc2 = sub.Split(new string[] { "\n" }, StringSplitOptions.None);
 
-                String[] time2 = Regex.Split(splitc2[0], " *--> *");           //May or may not have a space or more than 2 dashes
+                string[] time2 = Regex.Split(splitc2[0], " *--> *");           //May or may not have a space or more than 2 dashes
                 DateTime beginTime2;
                 DateTime endTime2;
                 beginTime2 = DateTime.ParseExact(time2[0], "HH:mm:ss,fff", CultureInfo.InvariantCulture);
                 endTime2 = DateTime.ParseExact(time2[1], "HH:mm:ss,fff", CultureInfo.InvariantCulture);
 
-                String tmp2 = splitc2[1].TrimEnd();
-                foreach (String text in splitc2.Skip(2))
+                string tmp2 = splitc2[1].TrimEnd();
+                foreach (string text in splitc2.Skip(2))
                 {
                     tmp2 = tmp2 + "\n" + text.TrimEnd();
                 }
@@ -303,9 +302,9 @@ namespace SubCSharp
         /// Reads a WebVTT to the applications local format
         /// </summary>
         /// <param name="path">The path to the subtitle to convert</param>
-        private void ReadWebVTT(String path)
+        private void ReadWebVTT(string path)
         {
-            String raw = File.ReadAllText(path, Encoding.Default);
+            string raw = File.ReadAllText(path, Encoding.Default);
             raw = raw.Replace("\r\n", "\n");    //Replace Windows format
             raw = raw.Replace("\r", "\n");      //Replace old Mac format (it's in the specs to do so)
             raw = raw.Trim();
@@ -317,13 +316,13 @@ namespace SubCSharp
             if (!splited[0].StartsWith("WEBVTT")) return; //Not a valid WebVTT
             DateTime beginTime = new DateTime();
             DateTime endTime = new DateTime();
-            String textContent = "";
-            foreach (String line in splited.Skip(1)) //Iterate line by line
+            string textContent = "";
+            foreach (string line in splited.Skip(1)) //Iterate line by line
             {
                 switch (ss)
                 {
                     case (SState.Empty):
-                        String linetrim = line.TrimEnd();
+                        string linetrim = line.TrimEnd();
                         if (line.Equals("")) continue;                            //Run past newlines
                         //Style is only allowed to appear before all cues, hence a separate test, 
                         //unsure if you can have style and a :: value on same line, so test both  anyway
@@ -343,10 +342,10 @@ namespace SubCSharp
 
                     case (SState.Timestamp):
                         //Split and parse the timestamp 
-                        String[] time = Regex.Split(line, " *--> *");
+                        string[] time = Regex.Split(line, " *--> *");
                         //Parse the time, can only be one of 2 option, so try this one first
                         bool tryBegin = DateTime.TryParseExact(time[0], "HH:mm:ss.fff", CultureInfo.InvariantCulture, DateTimeStyles.None, out beginTime);
-                        String[] endTimeSplit = time[1].Split(SpaceArray, StringSplitOptions.None); //Timestamp might contain info after it, so remove it
+                        string[] endTimeSplit = time[1].Split(SpaceArray, StringSplitOptions.None); //Timestamp might contain info after it, so remove it
                         bool tryEnd = DateTime.TryParseExact(endTimeSplit[0], "HH:mm:ss.fff", CultureInfo.InvariantCulture, DateTimeStyles.None, out endTime);
                         //If something went wrong, parse it differnetly;
                         if (!tryBegin) DateTime.TryParseExact(time[0], "mm:ss.fff", CultureInfo.InvariantCulture, DateTimeStyles.None, out beginTime);
@@ -357,7 +356,7 @@ namespace SubCSharp
                     case (SState.Iterating):
                         if (line.Equals("")) //Come to the end of the cue block so add it to the sub
                         {
-                            String cleanedString = textContent.TrimEnd(); //Remove the additional newline we added
+                            string cleanedString = textContent.TrimEnd(); //Remove the additional newline we added
                             subTitleLocal.Add(new SubtitleEntry(beginTime, endTime, cleanedString));
                             textContent = "";                             //Cleanup
                             ss = SState.Empty;
@@ -372,7 +371,7 @@ namespace SubCSharp
             }
             if (ss == SState.Iterating) //End of file, add last if we were still going
             {
-                String cleanedString = textContent.TrimEnd(); //Remove the additional newline we added
+                string cleanedString = textContent.TrimEnd(); //Remove the additional newline we added
                 subTitleLocal.Add(new SubtitleEntry(beginTime, endTime, cleanedString));
             }
 
@@ -382,18 +381,18 @@ namespace SubCSharp
         /// Old, Use ReadWSRT2 instead
         /// </summary>
         /// <param name="path">Input path for the subtitle</param>
-        private void ReadWSRT(String path)
+        private void ReadWSRT(string path)
         {
             //Very similar to ReadSRT, however removes additions such as cues settings
             // Neeed to support addition info at http://annodex.net/~silvia/tmp/WebSRT/#slide1
-            String raw = File.ReadAllText(path, Encoding.Default);
+            string raw = File.ReadAllText(path, Encoding.Default);
             raw = raw.Replace("\r\n", "\n");
-            String[] split = Regex.Split(raw, @"\n\n[0-9]+\n"); //Each etnry can be separted like this
+            string[] split = Regex.Split(raw, @"\n\n[0-9]+\n"); //Each etnry can be separted like this
             //First case is a bit different as it has an extra row or maybe junk
-            String case1 = split[0].TrimStart();
-            String[] splitc1 = case1.Split(NewLineArray, StringSplitOptions.None);
+            string case1 = split[0].TrimStart();
+            string[] splitc1 = case1.Split(NewLineArray, StringSplitOptions.None);
 
-            String[] time = Regex.Split(splitc1[1], " *--> *");           //May or may not have a space or more than 2 dashes
+            string[] time = Regex.Split(splitc1[1], " *--> *");           //May or may not have a space or more than 2 dashes
 
             DateTime beginTime;
             DateTime endTime;
@@ -401,26 +400,26 @@ namespace SubCSharp
             beginTime = DateTime.ParseExact(time[0], "HH:mm:ss.fff", CultureInfo.InvariantCulture);
             endTime = DateTime.ParseExact(time[1], "HH:mm:ss.fff", CultureInfo.InvariantCulture);
 
-            String tmp = splitc1[2];
-            foreach (String text in splitc1.Skip(3))
+            string tmp = splitc1[2];
+            foreach (string text in splitc1.Skip(3))
             {
                 tmp = tmp + "\n" + text;
             }
             tmp = Regex.Replace(tmp, @"</*[0-9]+>", "");
             subTitleLocal.Add(new SubtitleEntry(beginTime, endTime, tmp));
             //Main loop
-            foreach (String sub in split.Skip(1))
+            foreach (string sub in split.Skip(1))
             {
-                String[] splitc2 = sub.Split(NewLineArray, StringSplitOptions.None);
+                string[] splitc2 = sub.Split(NewLineArray, StringSplitOptions.None);
 
-                String[] time2 = Regex.Split(splitc2[0], " *--> *");           //May or may not have a space or more than 2 dashes
+                string[] time2 = Regex.Split(splitc2[0], " *--> *");           //May or may not have a space or more than 2 dashes
                 DateTime beginTime2;
                 DateTime endTime2;
                 beginTime2 = DateTime.ParseExact(time[0].Substring(0, 12), "HH:mm:ss.fff", CultureInfo.InvariantCulture);
                 endTime2 = DateTime.ParseExact(time[1].Substring(0, 12), "HH:mm:ss.fff", CultureInfo.InvariantCulture);
 
-                String tmp2 = splitc2[1].TrimEnd();
-                foreach (String text in splitc2.Skip(2))
+                string tmp2 = splitc2[1].TrimEnd();
+                foreach (string text in splitc2.Skip(2))
                 {
                     tmp2 = tmp2 + "\n" + text.TrimEnd();
                 }
@@ -433,27 +432,27 @@ namespace SubCSharp
         /// Converts a wsrt subtitle into the Catchup Grabbers subtitle format
         /// </summary>
         /// <param name="path">Path to the WSRT file</param>
-        private void ReadWSRT2(String path)
+        private void ReadWSRT2(string path)
         {
 
-            String raw = File.ReadAllText(path, Encoding.Default);
+            string raw = File.ReadAllText(path, Encoding.Default);
             raw = raw.Replace("\r\n", "\n");
             raw = raw.Trim();
             var splited = raw.Split(NewLineArray, StringSplitOptions.None).ToList();
             DateTime beginTime = new DateTime();
             DateTime endTime = new DateTime();
-            String previous = "<blankstring>"; //Since need to handle first time option and can
-            String subContent = "";
+            string previous = "<blankstring>"; //Since need to handle first time option and can
+            string subContent = "";
             SState ss = SState.Empty;
-            String cleanedString = "";
-            foreach (String line in splited)
+            string cleanedString = "";
+            foreach (string line in splited)
             {
                 switch (ss)
                 {
                     case (SState.Empty): //First time
                         if (line.Contains("-->"))
                         {
-                            String[] time = Regex.Split(line, " *--> *");
+                            string[] time = Regex.Split(line, " *--> *");
                             DateTime.TryParse(time[0], out beginTime);
                             DateTime.TryParse(time[1].Split(SpaceArray, StringSplitOptions.None)[0], out endTime);
                             //beginTime = DateTime.ParseExact(time[0].Substring(0, 12), "HH:mm:ss.fff", CultureInfo.InvariantCulture);
@@ -472,7 +471,7 @@ namespace SubCSharp
                             subContent = "";
                             previous = "<blankstring>";
                             //Set date
-                            String[] time = Regex.Split(line, " *--> *");
+                            string[] time = Regex.Split(line, " *--> *");
                             DateTime.TryParse(time[0], out beginTime);
                             DateTime.TryParse(time[1].Split(SpaceArray, StringSplitOptions.None)[0], out endTime);
                             //beginTime = DateTime.ParseExact(time[0].Substring(0, 12), "HH:mm:ss.fff", CultureInfo.InvariantCulture);
@@ -502,23 +501,23 @@ namespace SubCSharp
         /// 
         /// </summary>
         /// <param name="path"></param>
-        private void WriteASS(String path)
+        private void WriteASS(string path)
         {
-            String nlASS = "\n";
+            string nlASS = "\n";
             if(subtitleNewLineOption != SubtitleNewLineOption.Default)
             {
                 nlASS = nlDict[subtitleNewLineOption];
             }
-            String head = "[Script Info]"      + nlASS +
+            string head = "[Script Info]"      + nlASS +
                           "Title: <untitled>"  + nlASS +
                           "ScriptType: v4.00+" + nlASS +
                           "Collisions: Normal" + nlASS +
                           "PlayDepth: 0" + nlASS + nlASS;
 
-            String styles = "[v4+ Styles]" + nlASS +
+            string styles = "[v4+ Styles]" + nlASS +
                             "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding" + nlASS +
                             "Style: Default,Arial,20,&H00FFFFFF,&H000080FF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,2,2,2,10,10,20,0\n\n";
-            String events = "[Events]" + nlASS +
+            string events = "[Events]" + nlASS +
                            "Format: Layer, Start, End, Style, Actor, MarginL, MarginR, MarginV, Effect, Text" + nlASS;
             StringBuilder builder = new StringBuilder();
             builder.Append(head);
@@ -526,20 +525,20 @@ namespace SubCSharp
             builder.Append(events);
             foreach(SubtitleEntry entry in subTitleLocal)
             {
-                String startTime = entry.startTime.ToString("H:mm:ss.ff");
-                String endTime = entry.endTime.ToString("H:mm:ss.ff");
-                builder.Append(String.Format("Dialogue: 0,{0},{1},Default,,0,0,0,,{2}" + nlASS, startTime, endTime, entry.content.Replace("\n", "\\N")));
+                string startTime = entry.startTime.ToString("H:mm:ss.ff");
+                string endTime = entry.endTime.ToString("H:mm:ss.ff");
+                builder.Append(string.Format("Dialogue: 0,{0},{1},Default,,0,0,0,,{2}" + nlASS, startTime, endTime, entry.content.Replace("\n", "\\N")));
             }
-             System.IO.File.WriteAllText(path, builder.ToString());
+            File.WriteAllText(path, builder.ToString());
         }
 
         /// <summary>
         /// Writes the current subtitle stored as a DFXP
         /// </summary>
         /// <param name="path">Output path for subtitle</param>
-        private void WriteDFXP(String path)
+        private void WriteDFXP(string path)
         {
-            String nlDFXP = "\n";
+            string nlDFXP = "\n";
             if (subtitleNewLineOption != SubtitleNewLineOption.Default)
             {
                 nlDFXP = nlDict[subtitleNewLineOption];
@@ -563,9 +562,9 @@ namespace SubCSharp
                     foreach (SubtitleEntry entry in subTitleLocal)
                     {
                         i++;
-                        String sTime = entry.startTime.ToString("HH:mm:ss.ff");
-                        String eTime = entry.endTime.ToString("HH:mm:ss.ff");
-                        String content = entry.content.Replace("\n", "<br/>");
+                        string sTime = entry.startTime.ToString("HH:mm:ss.ff");
+                        string eTime = entry.endTime.ToString("HH:mm:ss.ff");
+                        string content = entry.content.Replace("\n", "<br/>");
                         writer.WriteStartElement("p");
                         writer.WriteAttributeString("begin", sTime);
                         writer.WriteAttributeString("end", eTime);
@@ -586,38 +585,37 @@ namespace SubCSharp
         /// Converts the local format to Subrip format
         /// </summary>
         /// <param name="path">The path to the save location</param>
-        private void WriteSRT(String path)
+        private void WriteSRT(string path)
         {
-            String nlSRT = "\n";
+            string nlSRT = "\n";
             if (subtitleNewLineOption != SubtitleNewLineOption.Default)
             {
                 nlSRT = nlDict[subtitleNewLineOption];
             }
-
-            String subExport = "";
+            StringBuilder subExport = new StringBuilder();
             int i = 0;
             foreach (SubtitleEntry entry in subTitleLocal)
             {
                 i++;
-                String sTime = entry.startTime.ToString("HH:mm:ss,fff");
-                String eTime = entry.endTime.ToString("HH:mm:ss,fff");
-                subExport = subExport + i + nlSRT + sTime + " --> " + eTime + nlSRT + entry.content + nlSRT + nlSRT;
+                string sTime = entry.startTime.ToString("HH:mm:ss,fff");
+                string eTime = entry.endTime.ToString("HH:mm:ss,fff");
+                subExport.Append(i+ nlSRT + sTime + " --> " + eTime + nlSRT + entry.content + nlSRT + nlSRT);
             }
-            System.IO.File.WriteAllText(path, subExport);
+            File.WriteAllText(path, subExport.ToString());
         }
         /// <summary>
         /// Writes the Subtite to Subviewer format
         /// </summary>
         /// <param name="path"></param>
-        private void WriteSubviewer(String path)
+        private void WriteSubviewer(string path)
         {
-            String nlSubv = "\r\n";
+            string nlSubv = "\r\n";
             if (subtitleNewLineOption != SubtitleNewLineOption.Default)
             {
                 nlSubv = nlDict[subtitleNewLineOption];
             }
 
-            String subHead =   "[INFORMATION]" + nlSubv+
+            string subHead =   "[INFORMATION]" + nlSubv+
                                "[TITLE]" + nlSubv+
                                "[AUTHOR]" + nlSubv+
                                "[SOURCE]" + nlSubv +
@@ -632,57 +630,57 @@ namespace SubCSharp
             StringBuilder subExport = new StringBuilder(subHead);
             foreach (SubtitleEntry entry in subTitleLocal)
             {
-                String sTime = entry.startTime.ToString("HH:mm:ss.ff");
-                String eTime = entry.endTime.ToString("HH:mm:ss.ff");
+                string sTime = entry.startTime.ToString("HH:mm:ss.ff");
+                string eTime = entry.endTime.ToString("HH:mm:ss.ff");
                 subExport.Append(sTime + "," + eTime + nlSubv + entry.content.Replace("\n", nlSubv) + nlSubv + nlSubv);
             }
-            System.IO.File.WriteAllText(path, subExport.ToString());
+            File.WriteAllText(path, subExport.ToString());
         }
         /// <summary>
         /// Converts the local format to Subrip format
         /// Similar to WriteSRT with an additional value added to the start;
         /// </summary>
         /// <param name="path"></param>
-        private void WriteWebVTT(String path)
+        private void WriteWebVTT(string path)
         {
-            String nlWV = "\n";
+            string nlWV = "\n";
             if (subtitleNewLineOption != SubtitleNewLineOption.Default)
             {
                 nlWV = nlDict[subtitleNewLineOption];
             }
-            String subExport = "WEBVTT" + nlWV + nlWV;
+            StringBuilder subExport =  new StringBuilder("WEBVTT" + nlWV + nlWV);
             int i = 0;
             foreach (SubtitleEntry entry in subTitleLocal)
             {
                 i++;
-                String sTime = entry.startTime.ToString("HH:mm:ss.fff");
-                String eTime = entry.endTime.ToString("HH:mm:ss.fff");
-                subExport = subExport + i + nlWV + sTime + " --> " + eTime + nlWV + entry.content.Replace("\n\n", nlWV) + nlWV + nlWV; //Double newline only allowed at end;
+                string sTime = entry.startTime.ToString("HH:mm:ss.fff");
+                string eTime = entry.endTime.ToString("HH:mm:ss.fff");
+                subExport.Append(i + nlWV + sTime + " --> " + eTime + nlWV + entry.content.Replace("\n\n", nlWV) + nlWV + nlWV); //Double newline only allowed at end;
             }
-            System.IO.File.WriteAllText(path, subExport);
+            File.WriteAllText(path, subExport.ToString());
         }
         /// <summary>
         /// Converts the local format to WebSubrip format
         /// Essentilly the same except as WriteSRT using a different time format
         /// </summary>
         /// <param name="path">The path to the location to save to</param>
-        private void WriteWSRT(String path)
+        private void WriteWSRT(string path)
         {
-            String nlSRT = "\n";
+            string nlSRT = "\n";
             if (subtitleNewLineOption != SubtitleNewLineOption.Default)
             {
                 nlSRT = nlDict[subtitleNewLineOption];
             }
-            String subExport = "";
+            StringBuilder subExport = new StringBuilder();
             int i = 0;
             foreach (SubtitleEntry entry in subTitleLocal)
             {
                 i++;
-                String sTime = entry.startTime.ToString("HH:mm:ss.fff");
-                String eTime = entry.endTime.ToString("HH:mm:ss.fff");
-                subExport = subExport + i + nlSRT + sTime + " --> " + eTime + nlSRT + entry.content + nlSRT + nlSRT;
+                string sTime = entry.startTime.ToString("HH:mm:ss.fff");
+                string eTime = entry.endTime.ToString("HH:mm:ss.fff");
+                subExport.Append(i + nlSRT + sTime + " --> " + eTime + nlSRT + entry.content + nlSRT + nlSRT);
             }
-            System.IO.File.WriteAllText(path, subExport);
+            File.WriteAllText(path, subExport.ToString());
         }
 
         //--------------------------------------------Misc stuff -----------------//
@@ -718,7 +716,7 @@ namespace SubCSharp
         /// </summary>
         /// <param name="metric">The metric string</param>
         /// <returns>The datetime equivilent</returns>
-        private DateTime ParseTimeMetric(String metric)
+        private DateTime ParseTimeMetric(string metric)
         {
             DateTime time = new DateTime();
             Regex rg = new Regex(@"([0-9.]+)([a-z]+)");
@@ -750,7 +748,7 @@ namespace SubCSharp
         /// </summary>
         /// <param name="metric">The metric string</param>
         /// <returns>The Timespan equivilent</returns>
-        private TimeSpan ParseTimeMetricTimeSpan(String metric)
+        private TimeSpan ParseTimeMetricTimeSpan(string metric)
         {
             TimeSpan time = TimeSpan.Zero;
             Regex rg = new Regex(@"([0-9.]+)([a-z]+)");
@@ -794,7 +792,7 @@ namespace SubCSharp
         /// Add time for the local format
         /// </summary>
         /// <param name="timeMetric"></param>
-        public void AdjustTimingLocalAdd(String timeMetric)
+        public void AdjustTimingLocalAdd(string timeMetric)
         {
             TimeSpan ts = ParseTimeMetricTimeSpan(timeMetric);
             foreach(SubtitleEntry entry in subTitleLocal)
@@ -808,7 +806,7 @@ namespace SubCSharp
         /// Subtract time for the local format
         /// </summary>
         /// <param name="timeMetric"></param>
-        public void AdjustTimingLocalSub(String timeMetric)
+        public void AdjustTimingLocalSub(string timeMetric)
         {
             TimeSpan ts = ParseTimeMetricTimeSpan(timeMetric);
             foreach (SubtitleEntry entry in subTitleLocal)
@@ -840,10 +838,10 @@ namespace SubCSharp
         /// Read a subtitle from the specified input path / extension
         /// </summary>
         /// <param name="input"></param>
-        public bool ReadSubtitle(String input)
+        public bool ReadSubtitle(string input)
         {
             subTitleLocal = new List<SubtitleEntry>();
-            String extensionInput = System.IO.Path.GetExtension(input).ToLower();
+            string extensionInput = System.IO.Path.GetExtension(input).ToLower();
             switch (extensionInput) //Read file
             {
                 case (".ass"):
@@ -877,9 +875,9 @@ namespace SubCSharp
         /// </summary>
         /// <param name="output"></param>
         /// <returns></returns>
-        public bool WriteSubtitle(String output)
+        public bool WriteSubtitle(string output)
         {
-            String extensionOutput = System.IO.Path.GetExtension(output).ToLower();
+            string extensionOutput = System.IO.Path.GetExtension(output).ToLower();
 
             switch (extensionOutput) //Write to file
             {
@@ -915,7 +913,7 @@ namespace SubCSharp
         /// </summary>
         /// <param name="input">The path to the subtitle to convert</param>
         /// <param name="output">The path to the location to save, and file name/type to convert to</param>
-        public bool ConvertSubtitle(String input, String output)
+        public bool ConvertSubtitle(string input, string output)
         {
             return ConvertSubtitle(input, output, "");
         }
@@ -927,7 +925,7 @@ namespace SubCSharp
         /// <param name="output">The path to the location to save, and file name/type to convert to</param>
         /// <param name="timeshift"> The time to shift the subtitle</param>
         /// <returns></returns>
-        public bool ConvertSubtitle(String input, String output, String timeshift)
+        public bool ConvertSubtitle(string input, string output, string timeshift)
         {
 
             if (!ReadSubtitle(input)) return false;
