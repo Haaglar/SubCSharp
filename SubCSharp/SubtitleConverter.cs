@@ -97,7 +97,7 @@ namespace SubCSharp
             JoinSameStart();
         }
         /// <summary>
-        /// Converts a dfxp subtitle into the Catchup Grabbers subtitle format
+        /// Converts a dfxp subtitle into the local subtitle format
         /// </summary>
         /// <param name="path">The path to the dfxp to convert</param>
         private void ReadDFXP(string path)
@@ -117,13 +117,26 @@ namespace SubCSharp
                     }
 
                     string end = reader.GetAttribute("end");
-                    bool endSuc = DateTime.TryParse(end, out endTime);
-
-                    if (!endSuc) //If that failed parse it differently
+                    if (end != null)
                     {
-                        endTime = ParseTimeMetric(end);
-                    }
+                        bool endSuc = DateTime.TryParse(end, out endTime);
 
+                        if (!endSuc) //If that failed parse it differently
+                        {
+                            endTime = ParseTimeMetric(end);
+                        }
+                    }
+                    else //The subtitle uses the start dur format
+                    {
+                        end = reader.GetAttribute("dur");
+                        TimeSpan ts;
+                        bool endSuc = TimeSpan.TryParse(end, out ts);
+                        if (!endSuc) //If that failed parse it differently
+                        {
+                            ts = ParseTimeMetricAsTimeSpan(end);
+                        }
+                        endTime = beginTime.Add(ts);
+                    }
                     string text = reader.ReadInnerXml();
                     text = Regex.Replace(text, "(\r\n?|\n) *", ""); //Debeutify xml node
                     text = text.Replace("<br /><br />", "\n").Replace("<br />", "\n"); //Depends on the format remove all
@@ -251,7 +264,7 @@ namespace SubCSharp
             }
         }
         /// <summary>
-        /// Converts a srt subtitle into the Catchup Grabbers subtitle format
+        /// Converts a srt subtitle into the local subtitle format
         /// </summary>
         /// <param name="path">Input path for the subtitle</param>
         private void ReadSRT(string path)
@@ -377,7 +390,7 @@ namespace SubCSharp
 
         }
         /// <summary>
-        /// Converts a wsrt subtitle into the Catchup Grabbers subtitle format
+        /// Converts a wsrt subtitle into the local subtitle format
         /// Old, Use ReadWSRT2 instead
         /// </summary>
         /// <param name="path">Input path for the subtitle</param>
@@ -429,7 +442,7 @@ namespace SubCSharp
 
         }
         /// <summary>
-        /// Converts a wsrt subtitle into the Catchup Grabbers subtitle format
+        /// Converts a wsrt subtitle into the local subtitle format
         /// </summary>
         /// <param name="path">Path to the WSRT file</param>
         private void ReadWSRT2(string path)
@@ -737,6 +750,37 @@ namespace SubCSharp
                         break;
                     case ("ms"):
                         time = time.AddMilliseconds(st);
+                        break;
+                }
+            }
+            return time;
+        }
+        /// <summary>
+        /// Parses a timemetric ie 12h31m2s44ms
+        /// </summary>
+        /// <param name="metric">The metric string</param>
+        /// <returns>The TimeSpan equivilent</returns>
+        private TimeSpan ParseTimeMetricAsTimeSpan(string metric)
+        {
+            TimeSpan time = new TimeSpan();
+            Regex rg = new Regex(@"([0-9.]+)([a-z]+)");
+            MatchCollection mtchs = rg.Matches(metric);
+            foreach (Match match in mtchs)
+            {
+                float st = float.Parse(match.Groups[1].Value);
+                switch (match.Groups[2].Value)
+                {
+                    case ("h"):
+                        time += TimeSpan.FromHours(st);
+                        break;
+                    case ("m"):
+                        time += TimeSpan.FromMinutes(st);
+                        break;
+                    case ("s"):
+                        time += TimeSpan.FromSeconds(st);
+                        break;
+                    case ("ms"):
+                        time += TimeSpan.FromMilliseconds(st);
                         break;
                 }
             }
