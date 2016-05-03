@@ -336,22 +336,22 @@ namespace SubCSharp
                 {
                     case (SState.Empty):
                         string linetrim = line.TrimEnd();
-                        if (line.Equals("")) continue;                            //Run past newlines
+                        if (linetrim.Equals("")) continue;                            //Run past newlines
                         //Style is only allowed to appear before all cues, hence a separate test, 
                         //unsure if you can have style and a :: value on same line, so test both  anyway
                         if (subTitleLocal.Count == 0 && linetrim.Equals("STYLE") || linetrim.StartsWith("STYLE "))
                         {
                             ss = SState.Comment;                                //We want to skip like a note;
-                            goto case (SState.Comment);                         //Goto encouraged in in c# case :)
+                            break;
                         }
                         //WEBVTTComment, or region values we'll just skip
-                        if (line.Equals("NOTE") || linetrim.StartsWith("NOTE ") || linetrim.Equals("REGION"))
+                        if (linetrim.Equals("NOTE") || linetrim.StartsWith("NOTE ") || linetrim.Equals("REGION"))
                         {
                             ss = SState.Comment;
-                            goto case (SState.Comment);
+                            break;
                         }
-                        if (line.Contains("-->")) goto case (SState.Timestamp); //As we dont care for Queue ID, test only for timestamp
-                        break;
+                        if (linetrim.Contains("-->")) goto case (SState.Timestamp); //As we dont care for Queue ID, test only for timestamp
+                        break; //Must be junk data, spec says to abort, but lets keep going anhyway
 
                     case (SState.Timestamp):
                         //Split and parse the timestamp 
@@ -378,7 +378,8 @@ namespace SubCSharp
                         break;
 
                     case (SState.Comment): //We dont want notes so lets go here
-                        if (line.Equals("")) ss = SState.Empty;//Reached the end of the comment/style/region;
+                        string linetrimc = line.TrimEnd();
+                        if (linetrimc.Equals("")) ss = SState.Empty;//Reached the end of the comment/style/region;
                         break;
                 }
             }
