@@ -52,6 +52,10 @@ namespace SubCSharp
         }
         //-------------------------------------------------------------------------Read Formats---------------//
 
+        /// <summary>
+        /// Converts an advanced substation alpha subtitle into the local subtitle format
+        /// </summary>
+        /// <param name="path">Path to the subtitle to read</param>
         private void ReadASS(string path)
         {
             string subContent;// = File.ReadAllText(path, Encoding.Default);
@@ -148,7 +152,7 @@ namespace SubCSharp
         /// <summary>
         /// Reads a MicroDVD subtitle file
         /// </summary>
-        /// <param name="path"></param>
+        /// <param name="path">Path to the subtitle to read</param>
         private void ReadMicroDVD(string path)
         {
             //\d+\.\d+
@@ -512,9 +516,9 @@ namespace SubCSharp
         }
         //-------------------------------------------------------------------------Write Formats---------------//
         /// <summary>
-        /// 
+        /// Writes the current subtitle stored to the advanced subtitle station alpha
         /// </summary>
-        /// <param name="path"></param>
+        /// <param name="path">The location to save to</param>
         private void WriteASS(string path)
         {
             string nlASS = "\n";
@@ -598,7 +602,7 @@ namespace SubCSharp
         /// <summary>
         /// Converts the local format to Subrip format
         /// </summary>
-        /// <param name="path">The path to the save location</param>
+        /// <param name="path">Output path for subtitle</param>
         private void WriteSRT(string path)
         {
             string nlSRT = "\n";
@@ -620,7 +624,7 @@ namespace SubCSharp
         /// <summary>
         /// Writes the Subtite to Subviewer format
         /// </summary>
-        /// <param name="path"></param>
+        /// <param name="path">Output path for subtitle</param>
         private void WriteSubviewer(string path)
         {
             string nlSubv = "\r\n";
@@ -652,9 +656,9 @@ namespace SubCSharp
         }
         /// <summary>
         /// Converts the local format to Subrip format
-        /// Similar to WriteSRT with an additional value added to the start;
+        /// Similar to WriteSRT with an additional value added to the start.
         /// </summary>
-        /// <param name="path"></param>
+        /// <param name="path">Output path for subtitle</param>
         private void WriteWebVTT(string path)
         {
             string nlWV = "\n";
@@ -677,7 +681,7 @@ namespace SubCSharp
         /// Converts the local format to WebSubrip format
         /// Essentilly the same except as WriteSRT using a different time format
         /// </summary>
-        /// <param name="path">The path to the location to save to</param>
+        /// <param name="path">Output path for subtitle</param>
         private void WriteWSRT(string path)
         {
             string nlSRT = "\n";
@@ -834,9 +838,9 @@ namespace SubCSharp
         }
 
         /// <summary>
-        /// Add time for the local format
+        /// Adds the supplied timemetic to all entries in the subtitle list
         /// </summary>
-        /// <param name="timeMetric"></param>
+        /// <param name="timeMetric">A time metic to adjust the subtitle</param>
         public void AdjustTimingLocalAdd(string timeMetric)
         {
             TimeSpan ts = ParseTimeMetricTimeSpan(timeMetric);
@@ -848,9 +852,9 @@ namespace SubCSharp
         }
 
         /// <summary>
-        /// Subtract time for the local format
+        /// Subtract the supplied timemetic to all entries in the subtitle list
         /// </summary>
-        /// <param name="timeMetric"></param>
+        /// <param name="timeMetric">A time metic to adjust the subtitle</param>
         public void AdjustTimingLocalSub(string timeMetric)
         {
             TimeSpan ts = ParseTimeMetricTimeSpan(timeMetric);
@@ -882,11 +886,12 @@ namespace SubCSharp
         /// <summary>
         /// Read a subtitle from the specified input path / extension
         /// </summary>
-        /// <param name="input"></param>
+        /// <param name="input">Path to the subtitle</param>
+        /// <returns>A boolean representing the success of the operation</returns>
         public bool ReadSubtitle(string input)
         {
             subTitleLocal = new List<SubtitleEntry>();
-            string extensionInput = System.IO.Path.GetExtension(input).ToLower();
+            string extensionInput = Path.GetExtension(input).ToLower();
             switch (extensionInput) //Read file
             {
                 case (".ass"):
@@ -918,11 +923,11 @@ namespace SubCSharp
         /// <summary>
         /// Writes a subtitle to the specified output path / extension
         /// </summary>
-        /// <param name="output"></param>
-        /// <returns></returns>
+        /// <param name="output">Output path location with file extension</param>
+        /// <returns>A boolean representing the success of the operation</returns>
         public bool WriteSubtitle(string output)
         {
-            string extensionOutput = System.IO.Path.GetExtension(output).ToLower();
+            string extensionOutput = Path.GetExtension(output).ToLower();
 
             switch (extensionOutput) //Write to file
             {
@@ -958,6 +963,7 @@ namespace SubCSharp
         /// </summary>
         /// <param name="input">The path to the subtitle to convert</param>
         /// <param name="output">The path to the location to save, and file name/type to convert to</param>
+        /// <returns>A boolean representing the success of the operation</returns>
         public bool ConvertSubtitle(string input, string output)
         {
             return ConvertSubtitle(input, output, "");
@@ -969,7 +975,7 @@ namespace SubCSharp
         /// <param name="input">The path to the subtitle to convert</param>
         /// <param name="output">The path to the location to save, and file name/type to convert to</param>
         /// <param name="timeshift"> The time to shift the subtitle</param>
-        /// <returns></returns>
+        /// <returns>A boolean representing the success of the operation</returns>
         public bool ConvertSubtitle(string input, string output, string timeshift)
         {
 
