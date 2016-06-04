@@ -26,6 +26,7 @@ namespace SubCSharp
 
         public SubtitleNewLineOption subtitleNewLineOption = SubtitleNewLineOption.Default;
 
+        public Encoding EncodingRead = Encoding.Default;
         //Internal sub format to allow easy conversion
         private class SubtitleEntry
         {
@@ -58,11 +59,7 @@ namespace SubCSharp
         /// <param name="path">Path to the subtitle to read</param>
         private void ReadASS(string path)
         {
-            string subContent;// = File.ReadAllText(path, Encoding.Default);
-            using (StreamReader assFileSR = new StreamReader(path)) //Read file to string
-            {
-                subContent = assFileSR.ReadToEnd();
-            }
+            string subContent = File.ReadAllText(path, EncodingRead);
             subContent = Regex.Replace(subContent, @"\{[^}]*\}", ""); //Remove all additional styling
             using (StringReader assFile = new StringReader(subContent)) 
             {
@@ -160,7 +157,7 @@ namespace SubCSharp
             DateTime endTime;
             Regex regexSplit = new Regex(@"(?<=\})");
             Regex removeMeta = new Regex( @"\{[^}]*\}");
-            string raw = File.ReadAllText(path,Encoding.Default);
+            string raw = File.ReadAllText(path,EncodingRead);
             float fps;
             using (StringReader mDVD = new StringReader(raw))
             {
@@ -233,7 +230,7 @@ namespace SubCSharp
         /// <param name="path">Path to the subview file</param>
         private void ReadSubViewer(string path)
         {
-            string raw = File.ReadAllText(path, Encoding.Default);
+            string raw = File.ReadAllText(path, EncodingRead);
             raw = Regex.Replace(raw, @"\{[^}]*\}", "");
             //raw = raw.Replace("[br]", "\n"); //Replace newlines
             SSView state = SSView.Empty;
@@ -273,7 +270,7 @@ namespace SubCSharp
         /// <param name="path">Input path for the subtitle</param>
         private void ReadSRT(string path)
         {
-            string raw = File.ReadAllText(path, Encoding.Default);
+            string raw = File.ReadAllText(path, EncodingRead);
             raw = Regex.Replace(raw, @"<[^>]*>", "");
             string[] split = Regex.Split(raw, @"\n\n[0-9]+\n"); //Each etnry can be separted like this, a subtitle cannot contain a blank line followed by a line containing only a decimal number appartently
             //First case is a bit different as it has an extra row or maybe junk
@@ -321,7 +318,7 @@ namespace SubCSharp
         /// <param name="path">The path to the subtitle to convert</param>
         private void ReadWebVTT(string path)
         {
-            string raw = File.ReadAllText(path, Encoding.Default);
+            string raw = File.ReadAllText(path, EncodingRead);
             raw = raw.Replace("\r\n", "\n");    //Replace Windows format
             raw = raw.Replace("\r", "\n");      //Replace old Mac format (it's in the specs to do so)
             raw = raw.Trim();
@@ -392,7 +389,6 @@ namespace SubCSharp
                 string cleanedString = textContent.TrimEnd(); //Remove the additional newline we added
                 subTitleLocal.Add(new SubtitleEntry(beginTime, endTime, cleanedString));
             }
-
         }
         /// <summary>
         /// Converts a wsrt subtitle into the local subtitle format
@@ -453,7 +449,7 @@ namespace SubCSharp
         private void ReadWSRT2(string path)
         {
 
-            string raw = File.ReadAllText(path, Encoding.Default);
+            string raw = File.ReadAllText(path, EncodingRead);
             raw = raw.Replace("\r\n", "\n");
             raw = raw.Trim();
             var splited = raw.Split(NewLineArray, StringSplitOptions.None).ToList();
