@@ -517,11 +517,7 @@ namespace SubCSharp
         /// <param name="path">The location to save to</param>
         private void WriteASS(string path)
         {
-            string nlASS = "\n";
-            if(subtitleNewLineOption != SubtitleNewLineOption.Default)
-            {
-                nlASS = nlDict[subtitleNewLineOption];
-            }
+            string nlASS = GetNewlineType("\n");
             string head = "[Script Info]"      + nlASS +
                           "Title: <untitled>"  + nlASS +
                           "ScriptType: v4.00+" + nlASS +
@@ -552,11 +548,7 @@ namespace SubCSharp
         /// <param name="path">Output path for subtitle</param>
         private void WriteDFXP(string path)
         {
-            string nlDFXP = "\n";
-            if (subtitleNewLineOption != SubtitleNewLineOption.Default)
-            {
-                nlDFXP = nlDict[subtitleNewLineOption];
-            }
+            string nlDFXP = GetNewlineType("\n");
             XmlWriterSettings settings = new XmlWriterSettings
             {
                 Indent = true,
@@ -601,11 +593,7 @@ namespace SubCSharp
         /// <param name="path">Output path for subtitle</param>
         private void WriteSRT(string path)
         {
-            string nlSRT = "\n";
-            if (subtitleNewLineOption != SubtitleNewLineOption.Default)
-            {
-                nlSRT = nlDict[subtitleNewLineOption];
-            }
+            string nlSRT = GetNewlineType("\n");
             StringBuilder subExport = new StringBuilder();
             int i = 0;
             foreach (SubtitleEntry entry in subTitleLocal)
@@ -623,12 +611,7 @@ namespace SubCSharp
         /// <param name="path">Output path for subtitle</param>
         private void WriteSubviewer(string path)
         {
-            string nlSubv = "\r\n";
-            if (subtitleNewLineOption != SubtitleNewLineOption.Default)
-            {
-                nlSubv = nlDict[subtitleNewLineOption];
-            }
-
+            string nlSubv = GetNewlineType("\r\n");
             string subHead =   "[INFORMATION]" + nlSubv+
                                "[TITLE]" + nlSubv+
                                "[AUTHOR]" + nlSubv+
@@ -657,11 +640,7 @@ namespace SubCSharp
         /// <param name="path">Output path for subtitle</param>
         private void WriteWebVTT(string path)
         {
-            string nlWV = "\n";
-            if (subtitleNewLineOption != SubtitleNewLineOption.Default)
-            {
-                nlWV = nlDict[subtitleNewLineOption];
-            }
+            string nlWV = GetNewlineType("\n");
             StringBuilder subExport =  new StringBuilder("WEBVTT" + nlWV + nlWV);
             int i = 0;
             foreach (SubtitleEntry entry in subTitleLocal)
@@ -680,11 +659,7 @@ namespace SubCSharp
         /// <param name="path">Output path for subtitle</param>
         private void WriteWSRT(string path)
         {
-            string nlSRT = "\n";
-            if (subtitleNewLineOption != SubtitleNewLineOption.Default)
-            {
-                nlSRT = nlDict[subtitleNewLineOption];
-            }
+            string nlSRT = GetNewlineType("\n");
             StringBuilder subExport = new StringBuilder();
             int i = 0;
             foreach (SubtitleEntry entry in subTitleLocal)
@@ -877,6 +852,20 @@ namespace SubCSharp
                 }
 
             }
+        }
+
+        /// <summary>
+        /// Gets the newline type
+        /// </summary>
+        /// <param name="defaultValue">The default newline value if its not set</param>
+        /// <returns>The newline option</returns>
+        private string GetNewlineType(string defaultValue)
+        {
+            if (subtitleNewLineOption != SubtitleNewLineOption.Default)
+            {
+                return nlDict[subtitleNewLineOption];
+            }
+            return defaultValue;
         }
 
         /// <summary>
