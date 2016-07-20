@@ -16,7 +16,7 @@ namespace SubCSharp
         private enum SState { Empty, Adding, Iterating, Comment, Timestamp };
         private enum SSView { Empty, Timestamp, Content }
         private enum SubFormat { NoMatch, SubViewer, MicroDVD};
-
+        
         public enum SubtitleNewLineOption {Default, Windows, Unix, MacOLD}
 
         private static string[] SpaceArray = new string[] { " " }; //Dont want to keep recreating these
@@ -25,6 +25,9 @@ namespace SubCSharp
         private static string[] CloseSquigArray = new string[] { "}" };
 
         public SubtitleNewLineOption subtitleNewLineOption = SubtitleNewLineOption.Default;
+
+        //For functions that need a default fps
+        public float specFPS = 23.976f;
 
         public Encoding EncodingRead = Encoding.Default;
         //Internal sub format to allow easy conversion
@@ -170,7 +173,7 @@ namespace SubCSharp
 
                 if (!float.TryParse(contentFirst, out fps))
                 {
-                    fps = 23.976f;
+                    fps = specFPS;
                     beginFrameStr = splitFirst[0].Substring(1, splitFirst[0].Length - 2);
                     endFrameStr = splitFirst[1].Substring(1, splitFirst[1].Length - 2);
                     startTime = framesToDateTime(int.Parse(beginFrameStr), fps);
@@ -195,6 +198,49 @@ namespace SubCSharp
                 }
             }
         }
+
+        /// <summary>
+        /// Reads a MPlayer subtitle file (similar to Microdvd)
+        /// Cant find a spec for it
+        /// </summary>
+        /// <param name="path">Path to the subtitle to read</param>
+        private void ReadMPlayer(string path)
+        {
+            //\d+\.\d+
+            DateTime startTime;
+            DateTime endTime;
+            Regex regexSplit = new Regex(@"(?<=\])");
+            string raw = File.ReadAllText(path, EncodingRead);
+            using (StringReader mPlay = new StringReader(raw))
+            {
+                string line;
+                string beginFrameStr;          //String of frames for starttime
+                string endFrameStr;             //String of frames for endtime
+                Regex italics = new Regex(@"/");
+                while ((line = mPlay.ReadLine()) != null)
+                {
+                    line = line.Trim();
+                    if (line == "") continue;
+                    string[] split = regexSplit.Split(line, 3);
+                    //Remove start and end {}
+                    beginFrameStr = split[0].Substring(1, split[0].Length - 2);
+                    endFrameStr = split[1].Substring(1, split[1].Length - 2);
+                    //Parse into datetime
+                    startTime = framesToDateTime(int.Parse(beginFrameStr), specFPS);
+                    endTime = framesToDateTime(int.Parse(endFrameStr), specFPS);
+                    //Replace italics
+                    string content = split[2];
+                    int ital = content.IndexOf("/");
+                    if (ital >= 0)
+                    {
+                        content = content.Substring(0, ital) + "<i>" + content.Substring(ital + content.Length) + "</i>";
+                    }
+                    content = split[2].Replace("|", "\n");
+                    subTitleLocal.Add(new SubtitleEntry(startTime, endTime, content));
+                }
+            }
+        }
+
 
         /// <summary>
         /// Handles analysizing the type of .sub format (microdvd, subviewer)
@@ -886,6 +932,9 @@ namespace SubCSharp
                 case (".dfxp"):
                 case (".ttml"):
                     ReadDFXP(input);
+                    break;
+                case (".mpl"):
+                    ReadMPlayer(input);
                     break;
                 case (".sub"):
                     ReadSub(input);
