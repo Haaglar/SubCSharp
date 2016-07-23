@@ -15,7 +15,7 @@ namespace SubCSharp
         //State for WSRT & Webvvt reading
         private enum SState { Empty, Adding, Iterating, Comment, Timestamp };
         private enum SSView { Empty, Timestamp, Content }
-        private enum SubFormat { NoMatch, SubViewer, MicroDVD};
+        public enum SubFormat { NoMatch, SubViewer, MicroDVD};
         
         public enum SubtitleNewLineOption {Default, Windows, Unix, MacOLD}
 
@@ -29,6 +29,8 @@ namespace SubCSharp
         //For functions that need a default fps
         public float specFPSRead = 23.976f;
         public float specFPSWrite = 23.976f;
+
+        public SubFormat DotSubSave = SubFormat.SubViewer; 
 
         public Encoding EncodingRead = Encoding.Default;
         //Internal sub format to allow easy conversion
@@ -169,23 +171,31 @@ namespace SubCSharp
                 string line = mDVD.ReadLine(); //First case options for framerate of video need to be handled
                 string beginFrameStr;          //String of frames for starttime
                 string endFrameStr;             //String of frames for endtime
-                string[] splitFirst = regexSplit.Split(line, 3);
-                string contentFirst = splitFirst[2].Replace("[","").Replace("]","").Replace(",",".");
+                if (!line.StartsWith("{DE"))
+                {
 
-                if (!float.TryParse(contentFirst, out fps))
+                    string[] splitFirst = regexSplit.Split(line, 3);
+                    string contentFirst = splitFirst[2].Replace("[", "").Replace("]", "").Replace(",", ".");
+
+                    if (!float.TryParse(contentFirst, out fps))
+                    {
+                        fps = specFPSRead;
+                        beginFrameStr = splitFirst[0].Substring(1, splitFirst[0].Length - 2);
+                        endFrameStr = splitFirst[1].Substring(1, splitFirst[1].Length - 2);
+                        startTime = framesToDateTime(int.Parse(beginFrameStr), fps);
+                        endTime = framesToDateTime(int.Parse(endFrameStr), fps);
+                        string content = removeMeta.Replace(splitFirst[2], "").Replace("|", "\n");
+                        subTitleLocal.Add(new SubtitleEntry(startTime, endTime, content));
+                    }
+                }
+                else
                 {
                     fps = specFPSRead;
-                    beginFrameStr = splitFirst[0].Substring(1, splitFirst[0].Length - 2);
-                    endFrameStr = splitFirst[1].Substring(1, splitFirst[1].Length - 2);
-                    startTime = framesToDateTime(int.Parse(beginFrameStr), fps);
-                    endTime = framesToDateTime(int.Parse(endFrameStr), fps);
-                    string content = removeMeta.Replace(splitFirst[2], "").Replace("|", "\n");
-                    subTitleLocal.Add(new SubtitleEntry(startTime, endTime, content));
                 }
                 while ((line = mDVD.ReadLine()) != null)
                 {
                     line = line.Trim();
-                    if (line == "") continue;
+                    if (line == "" || line.StartsWith("{DE")) continue;
                     string[] split = regexSplit.Split(line,3);
                     //Remove start and end {}
                     beginFrameStr = split[0].Substring(1,split[0].Length-2);
@@ -639,6 +649,39 @@ namespace SubCSharp
         /// Cant find a spec for it
         /// </summary>
         /// <param name="path">Path to the subtitle to write</param>
+        private void WriteMircoDVD(string path)
+        {
+            string nlMpl = GetNewlineType("\n");
+            StringBuilder subExport = new StringBuilder();
+            Regex ital = new Regex("<i>");
+            Regex bold = new Regex("<b>");
+            Regex markup = new Regex(@"<[^>]*>");
+            foreach (SubtitleEntry entry in subTitleLocal)
+            {
+                TimeSpan start = new TimeSpan(0, entry.startTime.Hour, entry.startTime.Minute, entry.startTime.Second, entry.startTime.Millisecond);
+                double startSeconds = start.TotalSeconds;
+                int startFrame = (int)(startSeconds * specFPSWrite);
+                subExport.Append("{" + startFrame + "}");
+
+                TimeSpan end = new TimeSpan(0, entry.endTime.Hour, entry.endTime.Minute, entry.endTime.Second, entry.endTime.Millisecond);
+                double endSeconds = start.TotalSeconds;
+                int endFrame = (int)(startSeconds * specFPSWrite);
+                subExport.Append("{" + endFrame + "}");
+                //TODO: fix to spec
+                string text = ital.Replace(entry.content, "{y:i}", 1);
+                text = bold.Replace(text, "{y:b}", 1);
+                subExport.Append(markup.Replace(text, "").Replace("\n","|") + nlMpl);
+            }
+            File.WriteAllText(path, subExport.ToString());
+        }
+
+
+
+        /// <summary>
+        /// Writes a MPlayer subtitle file (similar to Microdvd)
+        /// Cant find a spec for it
+        /// </summary>
+        /// <param name="path">Path to the subtitle to write</param>
         private void WriteMPlayer(string path)
         {
             string nlMpl = GetNewlineType("\n");
@@ -658,7 +701,7 @@ namespace SubCSharp
                 subExport.Append("[" + endFrame + "]");
 
                 string text = ital.Replace(entry.content, "/", 1);
-                subExport.Append( " " + markup.Replace(text,"") + nlMpl);
+                subExport.Append(markup.Replace(text,"") + nlMpl);
             }
             File.WriteAllText(path, subExport.ToString());
         }
@@ -1008,7 +1051,14 @@ namespace SubCSharp
                     WriteMPlayer(output);
                     break;
                 case (".sub"):
-                    WriteSubviewer(output);
+                    if (DotSubSave == SubFormat.MicroDVD)
+                    {
+                        WriteMircoDVD(output);
+                    }
+                    else
+                    {
+                        WriteSubviewer(output);
+                    }
                     break;
                 case (".srt"):
                     WriteSRT(output);
