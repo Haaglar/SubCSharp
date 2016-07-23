@@ -27,7 +27,8 @@ namespace SubCSharp
         public SubtitleNewLineOption subtitleNewLineOption = SubtitleNewLineOption.Default;
 
         //For functions that need a default fps
-        public float specFPS = 23.976f;
+        public float specFPSRead = 23.976f;
+        public float specFPSWrite = 23.976f;
 
         public Encoding EncodingRead = Encoding.Default;
         //Internal sub format to allow easy conversion
@@ -173,7 +174,7 @@ namespace SubCSharp
 
                 if (!float.TryParse(contentFirst, out fps))
                 {
-                    fps = specFPS;
+                    fps = specFPSRead;
                     beginFrameStr = splitFirst[0].Substring(1, splitFirst[0].Length - 2);
                     endFrameStr = splitFirst[1].Substring(1, splitFirst[1].Length - 2);
                     startTime = framesToDateTime(int.Parse(beginFrameStr), fps);
@@ -226,8 +227,8 @@ namespace SubCSharp
                     beginFrameStr = split[0].Substring(1, split[0].Length - 2);
                     endFrameStr = split[1].Substring(1, split[1].Length - 2);
                     //Parse into datetime
-                    startTime = framesToDateTime(int.Parse(beginFrameStr), specFPS);
-                    endTime = framesToDateTime(int.Parse(endFrameStr), specFPS);
+                    startTime = framesToDateTime(int.Parse(beginFrameStr), specFPSRead);
+                    endTime = framesToDateTime(int.Parse(endFrameStr), specFPSRead);
                     //Replace italics
                     string content = split[2];
                     int ital = content.IndexOf("/");
@@ -240,7 +241,6 @@ namespace SubCSharp
                 }
             }
         }
-
 
         /// <summary>
         /// Handles analysizing the type of .sub format (microdvd, subviewer)
@@ -633,6 +633,37 @@ namespace SubCSharp
                 }
             }
         }
+
+        /// <summary>
+        /// Writes a MPlayer subtitle file (similar to Microdvd)
+        /// Cant find a spec for it
+        /// </summary>
+        /// <param name="path">Path to the subtitle to write</param>
+        private void WriteMPlayer(string path)
+        {
+            string nlMpl = GetNewlineType("\n");
+            StringBuilder subExport = new StringBuilder();
+            Regex ital = new Regex("<i>");
+            Regex markup = new Regex(@"<[^>]*>");
+            foreach (SubtitleEntry entry in subTitleLocal)
+            {
+                TimeSpan start = new TimeSpan(0, entry.startTime.Hour, entry.startTime.Minute, entry.startTime.Second, entry.startTime.Millisecond);
+                double startSeconds = start.TotalSeconds;
+                int startFrame = (int)(startSeconds * specFPSWrite);
+                subExport.Append("[" + startFrame + "]");
+
+                TimeSpan end = new TimeSpan(0, entry.endTime.Hour, entry.endTime.Minute, entry.endTime.Second, entry.endTime.Millisecond);
+                double endSeconds = start.TotalSeconds;
+                int endFrame = (int)(startSeconds * specFPSWrite);
+                subExport.Append("[" + endFrame + "]");
+
+                string text = ital.Replace(entry.content, "/", 1);
+                subExport.Append( " " + markup.Replace(text,"") + nlMpl);
+            }
+            File.WriteAllText(path, subExport.ToString());
+        }
+
+
         /// <summary>
         /// Converts the local format to Subrip format
         /// </summary>
@@ -972,6 +1003,9 @@ namespace SubCSharp
                 case (".dfxp"):
                 case (".ttml"):
                     WriteDFXP(output);
+                    break;
+                case (".mpl"):
+                    WriteMPlayer(output);
                     break;
                 case (".sub"):
                     WriteSubviewer(output);
